@@ -36,7 +36,8 @@ interface TwilioContextValue {
   sendDigits: (digits: string) => void;
 }
 
-const TwilioContext = createContext<TwilioContextValue | null>(null);
+export const TwilioContext = createContext<TwilioContextValue | null>(null);
+export type { TwilioContextValue };
 
 export function useTwilio(): TwilioContextValue {
   const value = useContext(TwilioContext);

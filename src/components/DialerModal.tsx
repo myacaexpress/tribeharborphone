@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatPhone } from "@/lib/format";
 import { useTwilio } from "./TwilioProvider";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -31,7 +32,7 @@ export default function DialerModal({ onClose }: { onClose: () => void }) {
         className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-neutral-900"
       >
         <p className="mb-1 text-xs text-neutral-400">
-          Calling from {businessNumber}
+          Calling from {formatPhone(businessNumber)}
         </p>
         <input
           value={number}
