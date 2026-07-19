@@ -20,7 +20,7 @@ const KEYS: Array<[string, string]> = [
 ];
 
 export default function DialerModal({ onClose }: { onClose: () => void }) {
-  const { dial, voice, businessNumber } = useTwilio();
+  const { dial, voice, businessNumber, contacts } = useTwilio();
   const [number, setNumber] = useState("");
 
   async function placeCall() {
@@ -59,6 +59,17 @@ export default function DialerModal({ onClose }: { onClose: () => void }) {
         <p className="mb-5 text-[11px] text-[color:var(--text-secondary)]">
           Calling from {formatPhone(businessNumber)}
         </p>
+        {contacts.length > 0 && (
+          <select
+            aria-label="Choose a saved contact"
+            defaultValue=""
+            onChange={(event) => setNumber(event.target.value)}
+            className="mb-4 w-full rounded-[9px] border border-[color:var(--hairline)] bg-transparent px-2 py-1.5 text-[12px] text-[color:var(--text-secondary)] outline-none"
+          >
+            <option value="" disabled>Saved contacts</option>
+            {contacts.map((contact) => <option key={contact.id} value={contact.phone}>{contact.name} · {formatPhone(contact.phone)}</option>)}
+          </select>
+        )}
         <div className="mb-5 grid grid-cols-3 gap-x-6 gap-y-3.5 px-2">
           {KEYS.map(([digit, letters]) => (
             <button

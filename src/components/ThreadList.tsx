@@ -2,20 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { Conversation } from "@twilio/conversations";
-import { formatPhone, formatTime } from "@/lib/format";
+import { formatTime } from "@/lib/format";
+import { resolveConversationName, type Contact } from "@/lib/contacts";
 import Avatar from "./Avatar";
 import { useTwilio } from "./TwilioProvider";
 
-export function conversationTitle(conversation: Conversation): string {
-  const name = conversation.friendlyName;
-  if (name) {
-    // friendlyName is often a comma-joined list of E.164 numbers.
-    return name
-      .split(",")
-      .map((part) => formatPhone(part.trim()))
-      .join(", ");
-  }
-  return "Conversation";
+export function conversationTitle(conversation: Conversation, contacts: Contact[]): string {
+  return resolveConversationName(conversation.friendlyName, contacts);
 }
 
 function ThreadRow({
@@ -27,7 +20,7 @@ function ThreadRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const { messagesVersion } = useTwilio();
+  const { messagesVersion, contacts } = useTwilio();
   const [preview, setPreview] = useState("");
   const [unread, setUnread] = useState(0);
 
@@ -54,7 +47,7 @@ function ThreadRow({
 
   const when =
     conversation.lastMessage?.dateCreated ?? conversation.dateCreated;
-  const title = conversationTitle(conversation);
+  const title = conversationTitle(conversation, contacts);
 
   return (
     <button
@@ -99,12 +92,12 @@ export default function ThreadList({
   selectedSid: string | null;
   onSelect: (sid: string) => void;
 }) {
-  const { conversations, status } = useTwilio();
+  const { conversations, status, contacts } = useTwilio();
   const [query, setQuery] = useState("");
 
   const visible = query.trim()
     ? conversations.filter((c) =>
-        conversationTitle(c).toLowerCase().includes(query.trim().toLowerCase()),
+        conversationTitle(c, contacts).toLowerCase().includes(query.trim().toLowerCase()),
       )
     : conversations;
 

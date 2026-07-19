@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { formatPhone } from "@/lib/format";
+import { useTwilio } from "./TwilioProvider";
 
 export default function NewMessageModal({
   onClose,
@@ -9,6 +11,7 @@ export default function NewMessageModal({
   onClose: () => void;
   onCreated: (sid: string) => void;
 }) {
+  const { contacts } = useTwilio();
   const [numbers, setNumbers] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +66,27 @@ export default function NewMessageModal({
           placeholder="(555) 123-4567, (555) 987-6543"
           className="mb-3 w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
         />
+        {contacts.length > 0 && (
+          <div className="mb-4 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+            {contacts.map((contact) => {
+              const selected = numbers.split(/[,\n;]+/).some((value) => value.trim() === contact.phone);
+              return (
+                <button
+                  key={contact.id}
+                  type="button"
+                  title={formatPhone(contact.phone)}
+                  onClick={() => {
+                    const current = numbers.split(/[,\n;]+/).map((value) => value.trim()).filter(Boolean);
+                    setNumbers(selected ? current.filter((value) => value !== contact.phone).join(", ") : [...current, contact.phone].join(", "));
+                  }}
+                  className={`rounded-full px-2.5 py-1 text-[12px] ${selected ? "bg-blue-600 text-white" : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"}`}
+                >
+                  {contact.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <label className="mb-1 block text-sm text-neutral-500">
           Name (optional)
         </label>

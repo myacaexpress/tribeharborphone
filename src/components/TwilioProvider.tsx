@@ -11,6 +11,11 @@ import {
 } from "react";
 import { Client, type Conversation } from "@twilio/conversations";
 import { Call, Device } from "@twilio/voice-sdk";
+import {
+  CONTACTS_ATTRIBUTE,
+  parseContacts,
+  type Contact,
+} from "@/lib/contacts";
 
 export type VoiceState =
   | { kind: "idle" }
@@ -26,10 +31,13 @@ interface TwilioContextValue {
   identity: string;
   businessNumber: string;
   conversations: Conversation[];
+  contacts: Contact[];
   /** Bumps whenever any conversation gets a new message (for re-renders). */
   messagesVersion: number;
   voice: VoiceState;
   muted: boolean;
+  saveContact: (contact: Contact) => Promise<void>;
+  deleteContact: (id: string) => Promise<void>;
   dial: (to: string) => Promise<void>;
   acceptIncoming: () => void;
   rejectIncoming: () => void;
@@ -98,15 +106,21 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState("");
   const [businessNumber, setBusinessNumber] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [messagesVersion, setMessagesVersion] = useState(0);
   const [voice, setVoice] = useState<VoiceState>({ kind: "idle" });
   const [muted, setMuted] = useState(false);
 
   const deviceRef = useRef<Device | null>(null);
+  const conversationsClientRef = useRef<Client | null>(null);
+  const contactsRef = useRef<Contact[]>([]);
   const voiceRef = useRef<VoiceState>({ kind: "idle" });
   useEffect(() => {
     voiceRef.current = voice;
   }, [voice]);
+  useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +136,7 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
 
         // --- Messaging ---
         conversationsClient = new Client(token);
+        conversationsClientRef.current = conversationsClient;
         const refreshList = async () => {
           if (!conversationsClient) return;
           const page = await conversationsClient.getSubscribedConversations();
@@ -136,6 +151,18 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
         const messagingReady = new Promise<void>((resolve, reject) => {
           conversationsClient?.on("initialized", async () => {
             try {
+              if (conversationsClient) {
+                const initialContacts = parseContacts(conversationsClient.user.attributes);
+                contactsRef.current = initialContacts;
+                setContacts(initialContacts);
+                conversationsClient.user.on("updated", ({ user, updateReasons }) => {
+                  if (!cancelled && updateReasons.includes("attributes")) {
+                    const updatedContacts = parseContacts(user.attributes);
+                    contactsRef.current = updatedContacts;
+                    setContacts(updatedContacts);
+                  }
+                });
+              }
               await refreshList();
               resolve();
             } catch (error) {
@@ -221,10 +248,44 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       conversationsClient?.shutdown();
+      conversationsClientRef.current = null;
       device?.destroy();
       deviceRef.current = null;
     };
   }, []);
+
+  const persistContacts = useCallback(async (nextContacts: Contact[]) => {
+    const client = conversationsClientRef.current;
+    if (!client) throw new Error("Contacts are still connecting. Try again in a moment.");
+    const currentAttributes = client.user.attributes;
+    const attributes =
+      currentAttributes && typeof currentAttributes === "object" && !Array.isArray(currentAttributes)
+        ? currentAttributes
+        : {};
+    const sorted = [...nextContacts].sort((a, b) => a.name.localeCompare(b.name));
+    const serialized = sorted.map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      phone: contact.phone,
+      group: contact.group,
+    }));
+    await client.user.updateAttributes({
+      ...attributes,
+      [CONTACTS_ATTRIBUTE]: serialized,
+    });
+    contactsRef.current = sorted;
+    setContacts(sorted);
+  }, []);
+
+  const saveContact = useCallback(async (contact: Contact) => {
+    const next = contactsRef.current.filter((item) => item.id !== contact.id);
+    next.push(contact);
+    await persistContacts(next);
+  }, [persistContacts]);
+
+  const deleteContact = useCallback(async (id: string) => {
+    await persistContacts(contactsRef.current.filter((contact) => contact.id !== id));
+  }, [persistContacts]);
 
   const dial = useCallback(async (to: string) => {
     const device = deviceRef.current;
@@ -291,9 +352,12 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
         identity,
         businessNumber,
         conversations,
+        contacts,
         messagesVersion,
         voice,
         muted,
+        saveContact,
+        deleteContact,
         dial,
         acceptIncoming,
         rejectIncoming,

@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "@twilio/conversations";
 import { formatPhone } from "@/lib/format";
+import { contactName, type Contact } from "@/lib/contacts";
 import Avatar from "./Avatar";
 import { conversationTitle } from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
 
-function authorLabel(author: string | null, identity: string): string {
+function authorLabel(author: string | null, identity: string, contacts: Contact[]): string {
   if (!author || author === identity) return "Me";
-  return formatPhone(author);
+  return contactName(contacts, author) ?? formatPhone(author);
 }
 
 export default function ConversationView({
@@ -17,7 +18,7 @@ export default function ConversationView({
 }: {
   conversation: Conversation;
 }) {
-  const { identity, messagesVersion } = useTwilio();
+  const { identity, messagesVersion, contacts } = useTwilio();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -64,7 +65,7 @@ export default function ConversationView({
       .catch(() => setIsGroup(false));
   }, [conversation]);
 
-  const title = conversationTitle(conversation);
+  const title = conversationTitle(conversation, contacts);
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-[color:var(--bg-main)]">
@@ -101,7 +102,7 @@ export default function ConversationView({
             >
               {isGroup && !mine && newSender && (
                 <span className="mb-0.5 ml-3 text-[11px] text-[color:var(--text-secondary)]">
-                  {authorLabel(message.author, identity)}
+                  {authorLabel(message.author, identity, contacts)}
                 </span>
               )}
               <div

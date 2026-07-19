@@ -7,6 +7,7 @@ import NewMessageModal from "./NewMessageModal";
 import ThreadList from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
 import VoiceOverlay from "./VoiceOverlay";
+import ContactsModal from "./ContactsModal";
 
 function ToolbarButton({
   label,
@@ -43,6 +44,7 @@ export default function AppShell() {
   const [selectedSid, setSelectedSid] = useState<string | null>(null);
   const [showDialer, setShowDialer] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
 
   const selected = useMemo(
     () => conversations.find((c) => c.sid === selectedSid) ?? null,
@@ -76,6 +78,13 @@ export default function AppShell() {
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
           <div className="flex gap-1">
+            <ToolbarButton label="Contacts" onClick={() => setShowContacts(true)}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="9" cy="8" r="3" />
+                <path d="M3.5 19c.4-3.4 2.2-5.2 5.5-5.2s5.1 1.8 5.5 5.2" />
+                <path d="M18 7v6M15 10h6" strokeLinecap="round" />
+              </svg>
+            </ToolbarButton>
             <ToolbarButton
               label={
                 voiceStatus === "error"
@@ -128,6 +137,7 @@ export default function AppShell() {
       )}
 
       {showDialer && <DialerModal onClose={() => setShowDialer(false)} />}
+      {showContacts && <ContactsModal onClose={() => setShowContacts(false)} />}
       {showCompose && (
         <NewMessageModal
           onClose={() => setShowCompose(false)}

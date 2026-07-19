@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import type { Conversation } from "@twilio/conversations";
 import type { Call } from "@twilio/voice-sdk";
+import type { Contact } from "@/lib/contacts";
 import AppShell from "@/components/AppShell";
 import {
   TwilioContext,
@@ -110,6 +111,11 @@ function DemoInner() {
         }
       : { kind: "idle" },
   );
+  const [contacts, setContacts] = useState<Contact[]>([
+    { id: "demo-1", name: "Shawn", phone: "+15555550101", group: "Team" },
+    { id: "demo-2", name: "Marie", phone: "+15555550102", group: "Team" },
+    { id: "demo-3", name: "Riverside Office Supply", phone: "+15555550177", group: "Vendors" },
+  ]);
 
   const value = useMemo<TwilioContextValue>(
     () => ({
@@ -120,9 +126,18 @@ function DemoInner() {
       identity: "marie",
       businessNumber: "+15555550100",
       conversations: DEMO_CONVERSATIONS,
+      contacts,
       messagesVersion: 0,
       voice,
       muted: false,
+      async saveContact(contact) {
+        setContacts((current) =>
+          [...current.filter((item) => item.id !== contact.id), contact].sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      },
+      async deleteContact(id) {
+        setContacts((current) => current.filter((contact) => contact.id !== id));
+      },
       async dial() {},
       acceptIncoming() {},
       rejectIncoming() {},
@@ -130,7 +145,7 @@ function DemoInner() {
       toggleMute() {},
       sendDigits() {},
     }),
-    [voice],
+    [contacts, voice],
   );
 
   return (
