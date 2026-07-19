@@ -28,9 +28,6 @@ export async function GET() {
 
   try {
     const client = restClient();
-    await client.api.v2010.accounts(env.twilioAccountSid).fetch();
-    twilio.credentials = "ok";
-
     const [service, application] = await Promise.allSettled([
       client.conversations.v1
         .services(env.twilioConversationsServiceSid)
@@ -39,6 +36,13 @@ export async function GET() {
     ]);
     twilio.conversations = service.status === "fulfilled" ? "ok" : "error";
     twilio.voice = application.status === "fulfilled" ? "ok" : "error";
+    // Standard API keys intentionally cannot read the Accounts endpoint. A
+    // successful call to either product proves that the credential itself is
+    // accepted; the individual resource checks still gate overall readiness.
+    twilio.credentials =
+      service.status === "fulfilled" || application.status === "fulfilled"
+        ? "ok"
+        : "error";
   } catch {
     // Keep the response intentionally coarse: callers need readiness, not
     // credential details or upstream error messages.
