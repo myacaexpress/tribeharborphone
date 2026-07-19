@@ -15,7 +15,7 @@ export REGION=us-central1
 
 | Variable | Value | Status |
 | --- | --- | --- |
-| `TWILIO_PHONE_NUMBER` | (kept in ignored `.env.local`) | Confirmed in Twilio account; Voice+SMS+MMS. Friendly name is a stale "Wayfinder Training Dev" label; webhooks still point at Twilio demo URLs until step 5. |
+| `TWILIO_PHONE_NUMBER` | (kept in ignored `.env.local`) | Confirmed in Twilio account; Voice+SMS+MMS. Inbound SMS is bound to Conversations autocreation (the number-level demo SMS URL is cleared), and inbound Voice points to Cloud Run. |
 | `TWILIO_API_KEY_SID` | (kept in ignored `.env.local`) | Dedicated Standard key "Tribe Harbor Phone 2026-07-19" |
 | `TWILIO_API_KEY_SECRET` | (Secret Manager `tribeharborphone-twilio-api-key-secret`, v2 ENABLED) | Rotated and verified against Conversations + Voice |
 | `TWILIO_ACCOUNT_SID` | (kept in ignored `.env.local`) | Confirmed 2026-07-18 |
@@ -88,7 +88,10 @@ public URL, and behind the Cloud Run proxy the app cannot reconstruct it
 reliably on its own. Without it, all webhooks fail signature validation
 (fail closed).
 
-## 5. Point Twilio at the service (console, user-only)
+## 5. Point Twilio at the service
+
+Production was configured and API-verified on 2026-07-19. The required state
+is listed here for recovery or a future environment migration.
 
 Using `${SERVICE_URL}` from step 4, set the **three** console-configured
 webhook URLs:
@@ -109,6 +112,11 @@ Also confirm, same console session:
   "Autocreate a Conversation" enabled.
 - Messaging → Regulatory compliance: the number is registered to an A2P 10DLC
   campaign (deliverability).
+
+The business number's ordinary Programmable Messaging webhook must be empty.
+Twilio invokes a number-level webhook even when Conversations captures the
+message; leaving the stock demo URL there causes an unwanted automatic reply
+in addition to delivering the inbound message to Tribe Phone.
 
 ## 6. Smoke test
 
