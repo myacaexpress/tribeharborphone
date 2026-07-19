@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "@twilio/conversations";
 import { formatPhone } from "@/lib/format";
-import { contactName, type Contact } from "@/lib/contacts";
+import { contactName, normalizePhone, type Contact } from "@/lib/contacts";
 import Avatar from "./Avatar";
 import { conversationTitle } from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
@@ -15,8 +15,10 @@ function authorLabel(author: string | null, identity: string, contacts: Contact[
 
 export default function ConversationView({
   conversation,
+  onOpenContact,
 }: {
   conversation: Conversation;
+  onOpenContact: (phone?: string) => void;
 }) {
   const { identity, messagesVersion, contacts } = useTwilio();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,6 +68,18 @@ export default function ConversationView({
   }, [conversation]);
 
   const title = conversationTitle(conversation, contacts);
+  const friendlyNamePhones = (conversation.friendlyName ?? "")
+    .split(",")
+    .map(normalizePhone)
+    .filter(Boolean);
+  const messagePhones = messages
+    .map((message) => message.author ?? "")
+    .filter((author) => author !== identity)
+    .map(normalizePhone)
+    .filter(Boolean);
+  const peerPhone = !isGroup
+    ? friendlyNamePhones[0] ?? messagePhones[0]
+    : undefined;
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-[color:var(--bg-main)]">
@@ -73,7 +87,15 @@ export default function ConversationView({
         className="flex items-center gap-2.5 px-5 py-2.5 backdrop-blur-xl"
         style={{ borderBottom: "1px solid var(--hairline)" }}
       >
-        <Avatar name={title} size={30} />
+        <button
+          type="button"
+          onClick={() => onOpenContact(peerPhone)}
+          aria-label={peerPhone ? `Open contact for ${title}` : `Open contacts for ${title}`}
+          title={peerPhone ? "View or edit contact" : "Open contacts"}
+          className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full transition-opacity hover:opacity-80 active:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+        >
+          <Avatar name={title} size={34} />
+        </button>
         <div className="min-w-0">
           <h2 className="truncate text-[14px] font-semibold leading-tight">
             {title}
@@ -81,6 +103,11 @@ export default function ConversationView({
           {isGroup && (
             <p className="text-[11px] leading-tight text-[color:var(--text-secondary)]">
               Group text
+            </p>
+          )}
+          {!isGroup && (
+            <p className="text-[11px] leading-tight text-[color:var(--text-secondary)]">
+              Tap photo for contact info
             </p>
           )}
         </div>

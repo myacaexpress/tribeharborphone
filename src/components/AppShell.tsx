@@ -45,6 +45,7 @@ export default function AppShell() {
   const [showDialer, setShowDialer] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
+  const [contactPhone, setContactPhone] = useState<string | null>(null);
 
   const selected = useMemo(
     () => conversations.find((c) => c.sid === selectedSid) ?? null,
@@ -78,7 +79,10 @@ export default function AppShell() {
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
           <div className="flex gap-1">
-            <ToolbarButton label="Contacts" onClick={() => setShowContacts(true)}>
+            <ToolbarButton label="Contacts" onClick={() => {
+              setContactPhone(null);
+              setShowContacts(true);
+            }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <circle cx="9" cy="8" r="3" />
                 <path d="M3.5 19c.4-3.4 2.2-5.2 5.5-5.2s5.1 1.8 5.5 5.2" />
@@ -122,7 +126,14 @@ export default function AppShell() {
       </aside>
 
       {selected ? (
-        <ConversationView key={selected.sid} conversation={selected} />
+        <ConversationView
+          key={selected.sid}
+          conversation={selected}
+          onOpenContact={(phone) => {
+            setContactPhone(phone ?? null);
+            setShowContacts(true);
+          }}
+        />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
           <p className="text-[15px] font-semibold text-[color:var(--text-secondary)]">
@@ -137,7 +148,13 @@ export default function AppShell() {
       )}
 
       {showDialer && <DialerModal onClose={() => setShowDialer(false)} />}
-      {showContacts && <ContactsModal onClose={() => setShowContacts(false)} />}
+      {showContacts && (
+        <ContactsModal
+          key={contactPhone ?? "directory"}
+          initialPhone={contactPhone}
+          onClose={() => setShowContacts(false)}
+        />
+      )}
       {showCompose && (
         <NewMessageModal
           onClose={() => setShowCompose(false)}
