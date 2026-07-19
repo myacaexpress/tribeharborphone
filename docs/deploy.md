@@ -11,30 +11,26 @@ export PROJECT=tribe-wayfinder-dev     # confirm this is the intended project
 export REGION=us-central1
 ```
 
-## Confirmed values (2026-07-18)
+## Confirmed values (2026-07-19)
 
 | Variable | Value | Status |
 | --- | --- | --- |
 | `TWILIO_PHONE_NUMBER` | (kept in ignored `.env.local`) | Confirmed in Twilio account; Voice+SMS+MMS. Friendly name is a stale "Wayfinder Training Dev" label; webhooks still point at Twilio demo URLs until step 5. |
-| `TWILIO_API_KEY_SID` | (kept in ignored `.env.local`) | Dedicated Standard key "Tribe Harbor Phone" |
-| `TWILIO_API_KEY_SECRET` | (Secret Manager `tribeharborphone-twilio-api-key-secret`, v1 ENABLED) | Never in chat/repo |
+| `TWILIO_API_KEY_SID` | (kept in ignored `.env.local`) | Dedicated Standard key "Tribe Harbor Phone 2026-07-19" |
+| `TWILIO_API_KEY_SECRET` | (Secret Manager `tribeharborphone-twilio-api-key-secret`, v2 ENABLED) | Rotated and verified against Conversations + Voice |
 | `TWILIO_ACCOUNT_SID` | (kept in ignored `.env.local`) | Confirmed 2026-07-18 |
 | `TWILIO_CONVERSATIONS_SERVICE_SID` | (kept in ignored `.env.local`) | Confirmed 2026-07-18 (Default Conversations Service) |
 | `SESSION_SECRET` | (Secret Manager `tribeharborphone-session-secret`, v1 ENABLED) | Generated securely, never in chat/repo |
 | `MARIE_PASSWORD` | (Secret Manager `tribeharborphone-marie-password`, v1 ENABLED) | Generated securely, never in chat/repo |
-| `TWILIO_AUTH_TOKEN` | (Secret Manager `tribeharborphone-twilio-auth-token`, **NO VERSION YET**) | Blocked on Twilio email re-verification |
-| `TWILIO_TWIML_APP_SID` | — | Create after first deploy (needs public URL) |
+| `TWILIO_AUTH_TOKEN` | (Secret Manager `tribeharborphone-twilio-auth-token`, v1 ENABLED) | Bound to Cloud Run for webhook signature validation |
+| `TWILIO_TWIML_APP_SID` | (kept in ignored `.env.local`) | Existing "Tribe Harbor Phone" app; outbound Voice URL points to Cloud Run |
 
-## 1. Secrets (status as of 2026-07-18)
+## 1. Secrets (status as of 2026-07-19)
 
-All four secrets exist in `$PROJECT`. Three have v1 ENABLED:
-`tribeharborphone-twilio-api-key-secret`, `tribeharborphone-session-secret`,
-`tribeharborphone-marie-password`.
-
-**Only remaining value:** `tribeharborphone-twilio-auth-token` has **no
-version yet** (Twilio requires email re-verification before revealing the
-token). Once you can see it in the console, add it — prompted silently,
-nothing echoes, nothing lands in history:
+All four secrets exist in `$PROJECT` and have enabled versions. The API-key
+secret is at v2; the auth token, session secret, and Marie password are at v1.
+For a future auth-token rotation, add a new version without echoing the value
+or putting it in shell history:
 
 ```bash
 read -rs -p "twilio auth token: " V && printf '%s' "$V" | \

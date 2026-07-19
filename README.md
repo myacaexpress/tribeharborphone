@@ -11,7 +11,7 @@ Built with Next.js, Twilio Voice JS SDK (calls), and Twilio Conversations
 ## How it works
 
 - `POST /api/login` — password login, signed session cookie. Everything except
-  Twilio webhooks requires the session (enforced in `src/middleware.ts`).
+  Twilio webhooks requires the session (enforced in `src/proxy.ts`).
 - `GET /api/token` — mints a Twilio access token (Voice + Conversations
   grants) for the browser, identity `marie`.
 - `POST /api/voice/outbound` — TwiML App voice URL. Bridges browser calls to
