@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/session";
 
-const HARBOR_ORIGIN = "https://www.tribeharbor.com";
-const HARBOR_LOGIN_ERROR_URL =
-  "https://www.tribeharbor.com/?leadership=1&login_error=1";
+const HARBOR_ORIGINS = new Set([
+  "https://tribeharbor.com",
+  "https://www.tribeharbor.com",
+]);
 
 function passwordsMatch(candidate: string, actual: string): boolean {
   const a = Buffer.from(candidate);
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       process.env.NODE_ENV !== "production" &&
       origin !== null &&
       /^http:\/\/localhost:\d+$/.test(origin);
-    if (origin !== HARBOR_ORIGIN && !isLocalDevelopmentOrigin) {
+    if ((!origin || !HARBOR_ORIGINS.has(origin)) && !isLocalDevelopmentOrigin) {
       return NextResponse.json({ error: "forbidden origin" }, { status: 403 });
     }
   }
@@ -47,7 +48,11 @@ export async function POST(request: Request) {
 
   if (!password || !passwordsMatch(password, env.mariePassword)) {
     if (isFormLogin) {
-      return NextResponse.redirect(HARBOR_LOGIN_ERROR_URL, 303);
+      const origin = request.headers.get("origin")!;
+      return NextResponse.redirect(
+        new URL("/?leadership=1&login_error=1", origin),
+        303,
+      );
     }
     return NextResponse.json({ error: "invalid password" }, { status: 401 });
   }
