@@ -159,6 +159,7 @@ export default function OpenActionsList() {
         <ActionDetailsModal
           action={selectedAction}
           updating={updating === selectedAction.id}
+          error={error}
           onClose={() => setSelectedAction(null)}
           onComplete={async () => {
             const completed = await complete(selectedAction.id);

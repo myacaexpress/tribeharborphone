@@ -30,26 +30,57 @@ function Detail({
 export default function ActionDetailsModal({
   action,
   updating,
+  error,
   onClose,
   onComplete,
 }: {
   action: WorkspaceAction;
   updating: boolean;
+  error: string | null;
   onClose: () => void;
   onComplete: () => Promise<void>;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
 
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+    function handleDialogKeys(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
 
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+    window.addEventListener("keydown", handleDialogKeys);
+    return () => {
+      window.removeEventListener("keydown", handleDialogKeys);
+      previouslyFocused?.focus();
+    };
+  }, []);
 
   return (
     <div
@@ -59,6 +90,7 @@ export default function ActionDetailsModal({
       }}
     >
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="action-details-title"
@@ -142,6 +174,16 @@ export default function ActionDetailsModal({
             </p>
             <p className="mt-1 text-[14px] leading-relaxed">{action.blocker}</p>
           </div>
+        )}
+
+        {error && (
+          <p
+            role="alert"
+            aria-live="polite"
+            className="mt-5 rounded-[10px] bg-red-500/10 px-3 py-2.5 text-[13px] leading-snug text-red-500"
+          >
+            {error}
+          </p>
         )}
 
         <button
