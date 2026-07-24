@@ -1,0 +1,162 @@
+import { useEffect, useRef } from "react";
+import type { WorkspaceAction } from "@/lib/workspace";
+
+const PRIORITY_STYLE: Record<string, string> = {
+  Urgent: "bg-red-500",
+  High: "bg-orange-500",
+  Normal: "bg-[#0a7aff]",
+  Low: "bg-slate-400",
+};
+
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  if (!value) return null;
+
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
+        {label}
+      </dt>
+      <dd className="mt-1 text-[14px] leading-snug">{value}</dd>
+    </div>
+  );
+}
+
+export default function ActionDetailsModal({
+  action,
+  updating,
+  onClose,
+  onComplete,
+}: {
+  action: WorkspaceAction;
+  updating: boolean;
+  onClose: () => void;
+  onComplete: () => Promise<void>;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="action-details-title"
+        className="max-h-[88dvh] w-full overflow-y-auto rounded-t-[24px] bg-[color:var(--bg-main)] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl sm:max-w-md sm:rounded-[18px] sm:p-5"
+      >
+        <div
+          aria-hidden="true"
+          className="mx-auto mb-2 h-1 w-9 rounded-full bg-[color:var(--hairline)] sm:hidden"
+        />
+
+        <header className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  PRIORITY_STYLE[action.priority] ?? "bg-slate-400"
+                }`}
+              />
+              <span className="text-[12px] font-semibold text-[color:var(--text-secondary)]">
+                {action.priority || "Normal"} priority
+              </span>
+            </div>
+            <h2
+              id="action-details-title"
+              className="mt-2 text-[21px] font-semibold leading-tight tracking-tight"
+            >
+              {action.affectedRecord}
+            </h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            aria-label="Close action details"
+            onClick={onClose}
+            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full bg-[color:var(--field)] text-[color:var(--text-secondary)] transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+          >
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+
+        <div
+          className="my-5 h-px"
+          style={{ background: "var(--hairline)" }}
+        />
+
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
+            What needs to be done
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed">
+            {action.action}
+          </p>
+        </div>
+
+        <dl className="mt-6 grid grid-cols-2 gap-x-5 gap-y-5">
+          <Detail
+            label="Due"
+            value={action.dateStatus || action.dueDate}
+          />
+          <Detail label="Status" value={action.status} />
+          <Detail label="Owner" value={action.owner} />
+          <Detail label="Type" value={action.recordType} />
+        </dl>
+
+        {action.blocker && (
+          <div className="mt-6 rounded-[12px] bg-[color:var(--field)] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
+              Blocker
+            </p>
+            <p className="mt-1 text-[14px] leading-relaxed">{action.blocker}</p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          disabled={updating}
+          onClick={() => void onComplete()}
+          className="mt-7 min-h-12 w-full touch-manipulation rounded-[13px] bg-[#0a7aff] px-4 text-[16px] font-semibold text-white transition-colors hover:bg-[#006ee6] active:bg-[#0060cc] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+        >
+          {updating ? "Marking done…" : "Mark done"}
+        </button>
+
+        <p className="mt-3 text-center text-[11px] text-[color:var(--text-secondary)]">
+          Action {action.id}
+        </p>
+      </section>
+    </div>
+  );
+}
