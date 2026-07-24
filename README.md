@@ -24,6 +24,10 @@ Built with Next.js, Twilio Voice JS SDK (calls), and Twilio Conversations
   is added to), this joins Marie's identity so it appears in her app.
 - `POST /api/conversations` — starts a new 1:1 (proxy address) or group MMS
   (projected address) thread.
+- `GET /api/workspace` — syncs phone contacts from **People & Agencies** and
+  open follow-ups from **Open Actions** in the Command Center sheet.
+- `PATCH /api/workspace/actions/:id` — completes a phone action in the sheet
+  and appends the change to **Activity Log**.
 
 All Twilio webhook routes validate the `X-Twilio-Signature` header.
 
@@ -44,6 +48,7 @@ the full reference):
 | `MARIE_PASSWORD` | Marie's login password |
 | `VOICE_FALLBACK_NUMBER` | Optional: forward unanswered inbound calls here |
 | `APP_BASE_URL` | Public URL of the deployed app (required in production for signature validation behind the proxy) |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | Command Center spreadsheet ID. The Cloud Run runtime service account must have Editor access. |
 
 ## Twilio console setup (one time)
 
@@ -98,6 +103,14 @@ The installed app opens in its own full-screen window and keeps the existing
 login and live Twilio behavior. Messages and private API responses are never
 stored by the service worker; when offline, the app shows a simple reconnect
 screen.
+
+## Command Center on the phone
+
+Contacts with a phone number in **People & Agencies** appear automatically in
+the contact picker. **Open Actions** appears directly below Messages; tapping
+the circle marks an action complete, records the completion metadata, and adds
+an append-only row to **Activity Log**. Sheet-synced contacts remain read-only
+in the phone app so the spreadsheet stays the source of truth.
 
 ## Deploy (Cloud Run)
 

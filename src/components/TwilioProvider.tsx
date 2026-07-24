@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useMemo,
   type ReactNode,
 } from "react";
 import { Client, type Conversation } from "@twilio/conversations";
@@ -16,6 +17,7 @@ import {
   parseContacts,
   type Contact,
 } from "@/lib/contacts";
+import type { WorkspaceAction, WorkspacePayload } from "@/lib/workspace";
 
 export type VoiceState =
   | { kind: "idle" }
@@ -32,12 +34,17 @@ interface TwilioContextValue {
   businessNumber: string;
   conversations: Conversation[];
   contacts: Contact[];
+  workspaceStatus: "loading" | "ready" | "error";
+  workspaceError: string | null;
+  openActions: WorkspaceAction[];
   /** Bumps whenever any conversation gets a new message (for re-renders). */
   messagesVersion: number;
   voice: VoiceState;
   muted: boolean;
   saveContact: (contact: Contact) => Promise<void>;
   deleteContact: (id: string) => Promise<void>;
+  refreshWorkspace: () => Promise<void>;
+  updateActionStatus: (actionId: string, status: string) => Promise<void>;
   dial: (to: string) => Promise<void>;
   acceptIncoming: () => void;
   rejectIncoming: () => void;
@@ -106,21 +113,59 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState("");
   const [businessNumber, setBusinessNumber] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [savedContacts, setSavedContacts] = useState<Contact[]>([]);
+  const [workspaceContacts, setWorkspaceContacts] = useState<Contact[]>([]);
+  const [workspaceStatus, setWorkspaceStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [openActions, setOpenActions] = useState<WorkspaceAction[]>([]);
   const [messagesVersion, setMessagesVersion] = useState(0);
   const [voice, setVoice] = useState<VoiceState>({ kind: "idle" });
   const [muted, setMuted] = useState(false);
 
   const deviceRef = useRef<Device | null>(null);
   const conversationsClientRef = useRef<Client | null>(null);
-  const contactsRef = useRef<Contact[]>([]);
+  const savedContactsRef = useRef<Contact[]>([]);
   const voiceRef = useRef<VoiceState>({ kind: "idle" });
   useEffect(() => {
     voiceRef.current = voice;
   }, [voice]);
   useEffect(() => {
-    contactsRef.current = contacts;
-  }, [contacts]);
+    savedContactsRef.current = savedContacts;
+  }, [savedContacts]);
+
+  const contacts = useMemo(() => {
+    const byPhone = new Map<string, Contact>();
+    for (const contact of workspaceContacts) byPhone.set(contact.phone, contact);
+    for (const contact of savedContacts) byPhone.set(contact.phone, contact);
+    return [...byPhone.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [savedContacts, workspaceContacts]);
+
+  const refreshWorkspace = useCallback(async () => {
+    setWorkspaceStatus("loading");
+    setWorkspaceError(null);
+    try {
+      const response = await fetch("/api/workspace", { cache: "no-store" });
+      const body = await response.json() as WorkspacePayload & { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Command Center sync failed.");
+      setWorkspaceContacts(body.contacts);
+      setOpenActions(body.actions);
+      setWorkspaceStatus("ready");
+    } catch (error) {
+      setWorkspaceStatus("error");
+      setWorkspaceError(
+        error instanceof Error ? error.message : "Command Center sync failed.",
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void refreshWorkspace();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [refreshWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,13 +198,13 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
             try {
               if (conversationsClient) {
                 const initialContacts = parseContacts(conversationsClient.user.attributes);
-                contactsRef.current = initialContacts;
-                setContacts(initialContacts);
+                savedContactsRef.current = initialContacts;
+                setSavedContacts(initialContacts);
                 conversationsClient.user.on("updated", ({ user, updateReasons }) => {
                   if (!cancelled && updateReasons.includes("attributes")) {
                     const updatedContacts = parseContacts(user.attributes);
-                    contactsRef.current = updatedContacts;
-                    setContacts(updatedContacts);
+                    savedContactsRef.current = updatedContacts;
+                    setSavedContacts(updatedContacts);
                   }
                 });
               }
@@ -273,19 +318,43 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
       ...attributes,
       [CONTACTS_ATTRIBUTE]: serialized,
     });
-    contactsRef.current = sorted;
-    setContacts(sorted);
+    savedContactsRef.current = sorted;
+    setSavedContacts(sorted);
   }, []);
 
   const saveContact = useCallback(async (contact: Contact) => {
-    const next = contactsRef.current.filter((item) => item.id !== contact.id);
-    next.push(contact);
+    const savedContact = { ...contact, source: "saved" as const };
+    const next = savedContactsRef.current.filter(
+      (item) => item.id !== savedContact.id && item.phone !== savedContact.phone,
+    );
+    next.push(savedContact);
     await persistContacts(next);
   }, [persistContacts]);
 
   const deleteContact = useCallback(async (id: string) => {
-    await persistContacts(contactsRef.current.filter((contact) => contact.id !== id));
+    await persistContacts(
+      savedContactsRef.current.filter((contact) => contact.id !== id),
+    );
   }, [persistContacts]);
+
+  const updateActionStatus = useCallback(async (
+    actionId: string,
+    nextStatus: string,
+  ) => {
+    const response = await fetch(
+      `/api/workspace/actions/${encodeURIComponent(actionId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      },
+    );
+    const body = await response.json() as { error?: string };
+    if (!response.ok) {
+      throw new Error(body.error ?? "Could not update the action.");
+    }
+    await refreshWorkspace();
+  }, [refreshWorkspace]);
 
   const dial = useCallback(async (to: string) => {
     const device = deviceRef.current;
@@ -353,11 +422,16 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
         businessNumber,
         conversations,
         contacts,
+        workspaceStatus,
+        workspaceError,
+        openActions,
         messagesVersion,
         voice,
         muted,
         saveContact,
         deleteContact,
+        refreshWorkspace,
+        updateActionStatus,
         dial,
         acceptIncoming,
         rejectIncoming,

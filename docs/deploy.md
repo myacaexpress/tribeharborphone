@@ -88,6 +88,23 @@ public URL, and behind the Cloud Run proxy the app cannot reconstruct it
 reliably on its own. Without it, all webhooks fail signature validation
 (fail closed).
 
+### Connect the Command Center sheet
+
+Share the Command Center spreadsheet as **Editor** with the runtime service
+account from step 2. Then set only its spreadsheet ID:
+
+```bash
+gcloud run services update tribeharborphone \
+  --project "$PROJECT" --region "$REGION" \
+  --update-env-vars \
+  "GOOGLE_SHEETS_SPREADSHEET_ID=1q5zh2W_grgsnwhcl-giRcHDHTTmdBBKYCN9uqMQVZII"
+```
+
+The app reads **People & Agencies** and **Open Actions**. Completing an action
+updates that row and appends a phone-originated audit event to **Activity Log**.
+Google Application Default Credentials use the Cloud Run service identity; no
+service-account key file is stored in the app.
+
 ## 5. Map the mobile-friendly domain
 
 The preferred user-facing URL is `https://phone.tribeharbor.com`. Keep
