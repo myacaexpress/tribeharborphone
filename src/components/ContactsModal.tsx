@@ -38,6 +38,7 @@ export default function ContactsModal({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const launchedFromConversation = Boolean(normalizedInitialPhone);
+  const syncedContact = editing?.source === "sheet";
   const isDirty =
     draft.name !== baseline.name ||
     draft.phone !== baseline.phone ||
@@ -125,6 +126,11 @@ export default function ContactsModal({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (syncedContact) {
+      if (launchedFromConversation) onClose();
+      else setShowEditor(false);
+      return;
+    }
     const phone = normalizePhone(draft.phone);
     if (!draft.name.trim()) return setError("Enter a contact name.");
     if (!phone) return setError("Enter a valid phone number.");
@@ -190,7 +196,7 @@ export default function ContactsModal({
           <header className="flex min-h-14 items-center justify-between px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
             <div>
               <h2 className="text-[20px] font-bold tracking-tight">Contacts</h2>
-              <p className="text-[11px] text-[color:var(--text-secondary)]">{contacts.length} saved</p>
+              <p className="text-[11px] text-[color:var(--text-secondary)]">{contacts.length} contacts</p>
             </div>
             <div className="flex items-center gap-1">
               <button onClick={startNew} aria-label="Add contact" className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full text-[28px] font-light text-[#0a7aff] transition-colors hover:bg-black/[0.05] active:bg-black/[0.1]">+</button>
@@ -226,21 +232,29 @@ export default function ContactsModal({
               <span aria-hidden className="mr-1 text-[24px] font-light">‹</span> Contacts
             </button>
             <button type="button" onClick={requestClose} className="hidden min-h-11 items-center justify-self-start px-2 text-[15px] text-[#0a7aff] sm:flex">Close</button>
-            <h3 className="text-[15px] font-semibold">{editing ? "Edit Contact" : "New Contact"}</h3>
+            <h3 className="text-[15px] font-semibold">
+              {syncedContact ? "Contact" : editing ? "Edit Contact" : "New Contact"}
+            </h3>
             <button type="submit" form="contact-form" disabled={busy} className="min-h-11 justify-self-end px-2 text-[15px] font-semibold text-[#0a7aff] disabled:opacity-50">{busy ? "Saving…" : "Done"}</button>
           </header>
           <form id="contact-form" onSubmit={save} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:p-6">
             <div className="mb-3 flex justify-center"><Avatar name={draft.name} size={92} /></div>
             <p className="mb-6 text-center text-[13px] text-[color:var(--text-secondary)]">{draft.phone ? formatPhone(normalizePhone(draft.phone) || draft.phone) : "Contact information"}</p>
             <label htmlFor="contact-name" className="mb-1 text-[12px] text-[color:var(--text-secondary)]">Name</label>
-            <input id="contact-name" autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Full name or business" className="mb-4 min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none focus:border-[#0a7aff]" />
+            <input id="contact-name" autoFocus={!syncedContact} readOnly={syncedContact} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Full name or business" className="mb-4 min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none read-only:text-[color:var(--text-secondary)] focus:border-[#0a7aff]" />
             <label htmlFor="contact-phone" className="mb-1 text-[12px] text-[color:var(--text-secondary)]">Phone</label>
-            <input id="contact-phone" value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} placeholder="(555) 123-4567" inputMode="tel" className="mb-4 min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none focus:border-[#0a7aff]" />
+            <input id="contact-phone" readOnly={syncedContact} value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} placeholder="(555) 123-4567" inputMode="tel" className="mb-4 min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none read-only:text-[color:var(--text-secondary)] focus:border-[#0a7aff]" />
             <label htmlFor="contact-group" className="mb-1 text-[12px] text-[color:var(--text-secondary)]">Group <span className="text-[color:var(--text-secondary)]">(optional)</span></label>
-            <input id="contact-group" value={draft.group} onChange={(event) => setDraft({ ...draft, group: event.target.value })} placeholder="Clients, Team, Vendors…" className="min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none focus:border-[#0a7aff]" />
+            <input id="contact-group" readOnly={syncedContact} value={draft.group} onChange={(event) => setDraft({ ...draft, group: event.target.value })} placeholder="Clients, Team, Vendors…" className="min-h-11 rounded-[10px] border border-[color:var(--hairline)] bg-transparent px-3 py-2.5 text-[16px] outline-none read-only:text-[color:var(--text-secondary)] focus:border-[#0a7aff]" />
+            {syncedContact && (
+              <p className="mt-3 text-[12px] leading-relaxed text-[color:var(--text-secondary)]">
+                Synced from People &amp; Agencies. Update the Command Center to
+                change this contact.
+              </p>
+            )}
             {error && <p role="alert" className="mt-3 text-[12px] text-red-500">{error}</p>}
             <div className="mt-auto flex items-center justify-between pt-8">
-              {editing ? <button type="button" onClick={remove} disabled={busy} className="min-h-11 text-[15px] text-red-500 disabled:opacity-50">Delete Contact</button> : <span />}
+              {editing && !syncedContact ? <button type="button" onClick={remove} disabled={busy} className="min-h-11 text-[15px] text-red-500 disabled:opacity-50">Delete Contact</button> : <span />}
             </div>
           </form>
         </section>

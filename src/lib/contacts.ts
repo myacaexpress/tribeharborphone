@@ -5,6 +5,9 @@ export interface Contact {
   name: string;
   phone: string;
   group: string;
+  email?: string;
+  recordId?: string;
+  source?: "saved" | "sheet";
 }
 
 export const CONTACTS_ATTRIBUTE = "tribePhoneContacts";
@@ -36,6 +39,7 @@ export function parseContacts(attributes: unknown): Contact[] {
       name: typeof item.name === "string" ? item.name.trim() : "",
       phone: typeof item.phone === "string" ? normalizePhone(item.phone) : "",
       group: typeof item.group === "string" ? item.group.trim() : "",
+      source: "saved" as const,
     }))
     .filter((contact) => contact.id && contact.name && contact.phone)
     .sort((a, b) => a.name.localeCompare(b.name));
