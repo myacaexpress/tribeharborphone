@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <main
-      className="flex min-h-screen items-center justify-center"
+      className="flex min-h-dvh items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-[max(1rem,env(safe-area-inset-top))]"
       style={{
         background:
           "radial-gradient(1200px 800px at 50% -10%, rgba(10,122,255,0.12), transparent 60%), var(--bg-main)",
@@ -36,7 +36,7 @@ export default function LoginPage() {
     >
       <form
         onSubmit={submit}
-        className="w-full max-w-[320px] rounded-[26px] p-9 text-center shadow-xl backdrop-blur-2xl"
+        className="w-full max-w-[340px] rounded-[26px] p-7 text-center shadow-xl backdrop-blur-2xl sm:p-9"
         style={{
           background: "var(--bg-sidebar)",
           border: "1px solid var(--hairline)",
@@ -58,19 +58,26 @@ export default function LoginPage() {
         <p className="mb-7 text-[13px] text-[color:var(--text-secondary)]">
           Trifecta Benefits
         </p>
+        <label
+          htmlFor="password"
+          className="mb-1.5 block text-left text-[13px] font-medium"
+        >
+          Password
+        </label>
         <input
+          id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+          autoComplete="current-password"
           autoFocus
-          className="mb-3 w-full rounded-[10px] bg-[color:var(--field)] px-3.5 py-2.5 text-center text-[15px] outline-none ring-[#0a7aff]/60 transition-shadow focus:ring-2 placeholder:text-[color:var(--text-secondary)]"
+          className="mb-3 min-h-12 w-full rounded-[10px] bg-[color:var(--field)] px-3.5 py-2.5 text-center text-[16px] outline-none ring-[#0a7aff]/60 transition-shadow focus:ring-2"
         />
         {error && <p className="mb-3 text-[13px] text-[#ff3b30]">{error}</p>}
         <button
           type="submit"
           disabled={busy || !password}
-          className="w-full rounded-[10px] bg-[#0a7aff] py-2.5 text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="min-h-12 w-full touch-manipulation rounded-[10px] bg-[#0a7aff] py-2.5 text-[16px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-75 disabled:opacity-40"
         >
           {busy ? "Signing in…" : "Sign In"}
         </button>

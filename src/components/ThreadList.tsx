@@ -52,7 +52,7 @@ function ThreadRow({
   return (
     <button
       onClick={onSelect}
-      className={`group relative mx-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors ${
+      className={`group relative mx-2 flex min-h-16 w-[calc(100%-16px)] touch-manipulation items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors ${
         selected ? "bg-[#0a7aff] text-white" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
       }`}
     >
@@ -113,7 +113,7 @@ export default function ThreadList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search"
-            className="w-full bg-transparent text-[13px] outline-none placeholder:text-[color:var(--text-secondary)]"
+            className="w-full bg-transparent text-[16px] outline-none placeholder:text-[color:var(--text-secondary)] sm:text-[13px]"
           />
         </div>
       </div>

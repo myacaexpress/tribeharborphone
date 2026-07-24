@@ -15,9 +15,11 @@ function authorLabel(author: string | null, identity: string, contacts: Contact[
 
 export default function ConversationView({
   conversation,
+  onBack,
   onOpenContact,
 }: {
   conversation: Conversation;
+  onBack: () => void;
   onOpenContact: (phone?: string) => void;
 }) {
   const { identity, messagesVersion, contacts } = useTwilio();
@@ -84,9 +86,19 @@ export default function ConversationView({
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-[color:var(--bg-main)]">
       <header
-        className="flex items-center gap-2.5 px-5 py-2.5 backdrop-blur-xl"
+        className="flex min-h-14 items-center gap-2 px-2 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-xl sm:gap-2.5 sm:px-5 sm:py-2.5"
         style={{ borderBottom: "1px solid var(--hairline)" }}
       >
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to conversations"
+          className="flex h-11 min-w-11 touch-manipulation items-center justify-center gap-0.5 rounded-[10px] px-1 text-[#0a7aff] transition-colors active:bg-black/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff] dark:active:bg-white/[0.08] sm:hidden"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m14.5 5-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={() => onOpenContact(peerPhone)}
@@ -113,7 +125,7 @@ export default function ConversationView({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-5">
         {messages.map((message, i) => {
           const mine = (message.author ?? "") === identity;
           const prev = messages[i - 1];
@@ -147,7 +159,7 @@ export default function ConversationView({
         <div ref={bottomRef} />
       </div>
 
-      <footer className="px-4 pb-4 pt-1">
+      <footer className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:px-4 sm:pb-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -170,14 +182,14 @@ export default function ConversationView({
               }}
               rows={1}
               placeholder="Text Message · SMS"
-              className="max-h-32 w-full resize-none bg-transparent text-[15px] outline-none placeholder:text-[color:var(--text-secondary)]"
+              className="max-h-32 w-full resize-none bg-transparent text-[16px] outline-none placeholder:text-[color:var(--text-secondary)] sm:text-[15px]"
             />
           </div>
           <button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Send"
-            className="mb-[2px] flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[#0a7aff] text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full bg-[#0a7aff] text-white transition-opacity hover:opacity-90 active:opacity-75 disabled:opacity-30 sm:mb-[2px] sm:h-[34px] sm:w-[34px]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path

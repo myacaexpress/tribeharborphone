@@ -9,6 +9,9 @@ import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
  */
 const PUBLIC_PREFIXES = [
   "/login",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/offline.html",
   "/api/login",
   "/api/health",
   "/api/voice",

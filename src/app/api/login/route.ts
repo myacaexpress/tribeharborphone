@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   const token = await createSessionToken(env.sessionSecret);
   const response = isFormLogin
-    ? NextResponse.redirect(new URL("/", env.appBaseUrl ?? request.url), 303)
+    ? NextResponse.redirect(new URL("/", request.url), 303)
     : NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

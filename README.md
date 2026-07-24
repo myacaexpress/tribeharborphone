@@ -84,6 +84,21 @@ deployed app.
 synthetic data — useful for design review before credentials exist. Append
 `?call=incoming` to preview the incoming-call banner.
 
+## Install on a phone
+
+The app is an installable PWA at `https://phone.tribeharbor.com` (the Cloud
+Run URL remains a fallback).
+
+- **iPhone/iPad:** open the site in Safari, tap Share, then **Add to Home
+  Screen**.
+- **Android:** open the site in Chrome, open the browser menu, then tap
+  **Install app** or **Add to Home screen**.
+
+The installed app opens in its own full-screen window and keeps the existing
+login and live Twilio behavior. Messages and private API responses are never
+stored by the service worker; when offline, the app shows a simple reconnect
+screen.
+
 ## Deploy (Cloud Run)
 
 See [docs/deploy.md](docs/deploy.md) for the full runbook: Secret Manager
