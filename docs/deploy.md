@@ -88,7 +88,47 @@ public URL, and behind the Cloud Run proxy the app cannot reconstruct it
 reliably on its own. Without it, all webhooks fail signature validation
 (fail closed).
 
-## 5. Point Twilio at the service
+## 5. Map the mobile-friendly domain
+
+The preferred user-facing URL is `https://phone.tribeharbor.com`. Keep
+`APP_BASE_URL` on the Cloud Run service URL until the Twilio webhook URLs are
+deliberately migrated together; form login redirects already preserve the
+host the user opened, so the custom domain can roll out without changing
+webhook signature validation.
+
+1. Verify `tribeharbor.com` for the Google account that owns the Cloud Run
+   project:
+
+   ```bash
+   gcloud domains verify tribeharbor.com --project "$PROJECT"
+   ```
+
+2. Create the Cloud Run mapping:
+
+   ```bash
+   gcloud beta run domain-mappings create \
+     --service tribeharborphone \
+     --domain phone.tribeharbor.com \
+     --project "$PROJECT" \
+     --region "$REGION"
+   ```
+
+3. Add only the DNS record returned by the mapping command (normally a
+   `phone` CNAME). Do not change the apex, `www`, MX, SPF, DKIM, or Proton
+   records.
+4. Wait for the managed certificate:
+
+   ```bash
+   gcloud beta run domain-mappings describe \
+     --domain phone.tribeharbor.com \
+     --project "$PROJECT" \
+     --region "$REGION"
+   ```
+
+The original `${SERVICE_URL}` remains a working fallback during DNS and
+certificate propagation.
+
+## 6. Point Twilio at the service
 
 Production was configured and API-verified on 2026-07-19. The required state
 is listed here for recovery or a future environment migration.
@@ -118,9 +158,10 @@ Twilio invokes a number-level webhook even when Conversations captures the
 message; leaving the stock demo URL there causes an unwanted automatic reply
 in addition to delivering the inbound message to Tribe Phone.
 
-## 6. Smoke test
+## 7. Smoke test
 
-1. Open `${SERVICE_URL}`, sign in as Marie.
+1. Open `https://phone.tribeharbor.com` (or `${SERVICE_URL}` during DNS
+   propagation), sign in as Marie, and install it from the browser menu.
 2. Send a text to a team phone; reply from the phone; confirm the thread
    updates.
 3. Dial a team phone from the dialer; confirm caller ID shows the business

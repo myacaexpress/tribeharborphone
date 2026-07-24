@@ -26,7 +26,7 @@ function ToolbarButton({
       title={label}
       aria-label={label}
       disabled={disabled}
-      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#0a7aff] transition-colors hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-white/[0.08]"
+      className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] text-[#0a7aff] transition-colors hover:bg-black/[0.05] active:bg-black/[0.08] disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-white/[0.08] dark:active:bg-white/[0.12] sm:h-9 sm:w-9"
     >
       {children}
     </button>
@@ -66,17 +66,17 @@ export default function AppShell() {
   }
 
   return (
-    <main className="flex h-screen overflow-hidden">
+    <main className="flex h-dvh overflow-hidden">
       <VoiceOverlay />
 
       <aside
-        className="flex w-[320px] shrink-0 flex-col backdrop-blur-2xl"
+        className={`${selected ? "hidden sm:flex" : "flex"} w-full shrink-0 flex-col backdrop-blur-2xl sm:w-[320px]`}
         style={{
           background: "var(--bg-sidebar)",
           borderRight: "1px solid var(--hairline)",
         }}
       >
-        <div className="flex items-center justify-between px-4 pb-2 pt-4">
+        <div className="flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-4">
           <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
           <div className="flex gap-1">
             <ToolbarButton label="Contacts" onClick={() => {
@@ -118,7 +118,7 @@ export default function AppShell() {
             await fetch("/api/logout", { method: "POST" });
             window.location.href = "/login";
           }}
-          className="px-4 py-2.5 text-left text-[11px] text-[color:var(--text-secondary)] transition-colors hover:text-foreground"
+          className="min-h-11 px-4 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 text-left text-[12px] text-[color:var(--text-secondary)] transition-colors hover:text-foreground sm:pb-2.5"
           style={{ borderTop: "1px solid var(--hairline)" }}
         >
           Sign out
@@ -129,13 +129,14 @@ export default function AppShell() {
         <ConversationView
           key={selected.sid}
           conversation={selected}
+          onBack={() => setSelectedSid(null)}
           onOpenContact={(phone) => {
             setContactPhone(phone ?? null);
             setShowContacts(true);
           }}
         />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+        <div className="hidden flex-1 flex-col items-center justify-center gap-1 text-center sm:flex">
           <p className="text-[15px] font-semibold text-[color:var(--text-secondary)]">
             {status === "loading" ? "Connecting…" : "No Conversation Selected"}
           </p>

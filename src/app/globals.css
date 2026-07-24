@@ -40,12 +40,13 @@ body {
     "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
+  overscroll-behavior: none;
 }
 
 /* ---- iMessage bubbles (tail only on the last bubble of a sender run) ---- */
 .imsg {
   position: relative;
-  max-width: 72%;
+  max-width: 86%;
   padding: 7px 13px;
   border-radius: 19px;
   font-size: 15px;
@@ -53,6 +54,13 @@ body {
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
+
+@media (min-width: 640px) {
+  .imsg {
+    max-width: 72%;
+  }
+}
+
 .imsg-me {
   background: var(--imsg-blue);
   color: #fff;
