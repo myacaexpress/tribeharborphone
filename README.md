@@ -27,6 +27,9 @@ Built with Next.js, Twilio Voice JS SDK (calls), and Twilio Conversations
   high-confidence request for help with that action.
 - `POST /api/ai/support-draft` — produces an editable outreach preview from
   the selected open action. It never sends the preview automatically.
+- `POST /api/ai/conversation-draft` — combines the current Twilio thread with
+  an exact participant match to an open sheet action and fills an editable
+  reply in the composer. It never sends the reply automatically.
 - `POST /api/conversations` — starts a new 1:1 (proxy address) or group MMS
   (projected address) thread.
 - `GET /api/workspace` — syncs phone contacts from **People & Agencies** and

@@ -26,7 +26,10 @@ export default function ConversationView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +60,43 @@ export default function ConversationView({
       setDraft("");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function draftReply() {
+    if (drafting || sending) return;
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const response = await fetch("/api/ai/conversation-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationSid: conversation.sid,
+          currentDraft: draft,
+        }),
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.message) {
+        throw new Error(result.error || "Could not draft a reply.");
+      }
+      setDraft(result.message);
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+        composerRef.current?.setSelectionRange(
+          result.message!.length,
+          result.message!.length,
+        );
+      }, 0);
+    } catch (error) {
+      setDraftError(
+        error instanceof Error ? error.message : "Could not draft a reply.",
+      );
+    } finally {
+      setDrafting(false);
     }
   }
 
@@ -160,6 +200,15 @@ export default function ConversationView({
       </div>
 
       <footer className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:px-4 sm:pb-4">
+        {draftError && (
+          <p
+            role="alert"
+            aria-live="polite"
+            className="mb-1.5 px-2 text-[12px] leading-snug text-red-500"
+          >
+            {draftError}
+          </p>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -172,8 +221,12 @@ export default function ConversationView({
             style={{ border: "1px solid var(--hairline)", background: "var(--bg-main)" }}
           >
             <textarea
+              ref={composerRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setDraftError(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -186,10 +239,51 @@ export default function ConversationView({
             />
           </div>
           <button
+            type="button"
+            disabled={drafting || sending}
+            onClick={() => void draftReply()}
+            aria-label="Draft reply with AI"
+            title="Draft from this thread and the matching open action"
+            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-[color:var(--hairline)] bg-[color:var(--field)] text-[#0a7aff] transition-opacity hover:opacity-80 active:opacity-65 disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+          >
+            {drafting ? (
+              <svg
+                aria-hidden="true"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="animate-spin"
+              >
+                <path
+                  d="M20 12a8 8 0 1 1-2.34-5.66"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
+              <svg
+                aria-hidden="true"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path
+                  d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35L12 3ZM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+          <button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Send"
-            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full bg-[#0a7aff] text-white transition-opacity hover:opacity-90 active:opacity-75 disabled:opacity-30 sm:mb-[2px] sm:h-[34px] sm:w-[34px]"
+            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full bg-[#0a7aff] text-white transition-opacity hover:opacity-90 active:opacity-75 disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path
