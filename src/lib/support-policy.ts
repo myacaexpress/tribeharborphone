@@ -25,7 +25,10 @@ function comparableName(value: string): string {
 }
 
 export function firstName(value: string): string {
-  return value.trim().split(/\s+/)[0] || "there";
+  const cleaned = value
+    .trim()
+    .replace(/^test\s*[—–-]\s*(?:agent\s+)?/i, "");
+  return cleaned.split(/\s+/)[0] || "there";
 }
 
 export function findSupportedActionContext(
@@ -72,6 +75,9 @@ export function supportAcknowledgement(
   contactName: string,
   owner: string,
 ): string {
-  return `Hi ${firstName(contactName)}, Anika with TriBe Support here. I’ll check with ${actionOwnerLabel(owner)} on that and follow up here.`;
+  const name = firstName(contactName);
+  const introduction = /^anika$/i.test(name)
+    ? "Hi Anika — TriBe Support here."
+    : `Hi ${name}, Anika with TriBe Support here.`;
+  return `${introduction} I’ll check with ${actionOwnerLabel(owner)} on that and follow up here.`;
 }
-
