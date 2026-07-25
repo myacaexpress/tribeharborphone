@@ -23,6 +23,7 @@ export REGION=us-central1
 | `SESSION_SECRET` | (Secret Manager `tribeharborphone-session-secret`, v1 ENABLED) | Generated securely, never in chat/repo |
 | `MARIE_PASSWORD` | (Secret Manager `tribeharborphone-marie-password`, v1 ENABLED) | Generated securely, never in chat/repo |
 | `TWILIO_AUTH_TOKEN` | (Secret Manager `tribeharborphone-twilio-auth-token`, v1 ENABLED) | Bound to Cloud Run for webhook signature validation |
+| `OPENAI_API_KEY` | (Secret Manager `tribeharborphone-openai-api-key`) | Project-scoped key for support drafts and inbound help-request classification |
 | `TWILIO_TWIML_APP_SID` | (kept in ignored `.env.local`) | Existing "Tribe Harbor Phone" app; outbound Voice URL points to Cloud Run |
 
 ## 1. Secrets (status as of 2026-07-19)
@@ -50,7 +51,8 @@ export RUNTIME_SA="$(gcloud iam service-accounts list --project "$PROJECT" \
 for s in tribeharborphone-twilio-api-key-secret \
          tribeharborphone-twilio-auth-token \
          tribeharborphone-session-secret \
-         tribeharborphone-marie-password; do
+         tribeharborphone-marie-password \
+         tribeharborphone-openai-api-key; do
   gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
     --member "serviceAccount:${RUNTIME_SA}" \
     --role roles/secretmanager.secretAccessor
@@ -68,8 +70,8 @@ gcloud run deploy tribeharborphone --source . \
   --project "$PROJECT" --region "$REGION" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 2 \
-  --set-env-vars "TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_API_KEY_SID=${TWILIO_API_KEY_SID},TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER},TWILIO_TWIML_APP_SID=${TWILIO_TWIML_APP_SID},TWILIO_CONVERSATIONS_SERVICE_SID=${TWILIO_CONVERSATIONS_SERVICE_SID}" \
-  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest"
+  --set-env-vars "TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_API_KEY_SID=${TWILIO_API_KEY_SID},TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER},TWILIO_TWIML_APP_SID=${TWILIO_TWIML_APP_SID},TWILIO_CONVERSATIONS_SERVICE_SID=${TWILIO_CONVERSATIONS_SERVICE_SID},OPENAI_MODEL=gpt-5.6-terra" \
+  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest,OPENAI_API_KEY=tribeharborphone-openai-api-key:latest"
 ```
 
 ## 4. Set APP_BASE_URL
@@ -158,7 +160,8 @@ webhook URLs:
    `${SERVICE_URL}/api/voice/inbound` (POST)
 3. Conversations service → Webhooks → post-event URL:
    `${SERVICE_URL}/api/webhooks/conversations`, with the
-   `onConversationAdded` event enabled
+   `onConversationAdded`, `onConversationStateUpdated`, and `onMessageAdded`
+   events enabled
 
 (The fourth route, `/api/voice/inbound-status`, is reached via a relative
 TwiML `action` and is never configured in the console.)

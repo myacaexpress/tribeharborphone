@@ -12,6 +12,7 @@ type HealthResult = {
     credentials: "ok" | "error";
     voice: "ok" | "error";
   };
+  ai: "configured" | "error";
 };
 
 /**
@@ -48,10 +49,14 @@ export async function GET() {
     // credential details or upstream error messages.
   }
 
-  const status = Object.values(twilio).every((value) => value === "ok")
-    ? "ok"
-    : "degraded";
+  const ai = process.env.OPENAI_API_KEY ? "configured" : "error";
+  const status =
+    Object.values(twilio).every((value) => value === "ok") &&
+    ai === "configured"
+      ? "ok"
+      : "degraded";
   const body: HealthResult = {
+    ai,
     checkedAt: new Date().toISOString(),
     service: "tribe-phone",
     status,

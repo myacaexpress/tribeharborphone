@@ -5,6 +5,172 @@ import {
   restClient,
   validateTwilioSignature,
 } from "@/lib/twilio-server";
+import { normalizePhone } from "@/lib/contacts";
+import {
+  classifySupportMessage,
+} from "@/lib/support-ai";
+import {
+  findSupportedActionContext,
+  isOptOutMessage,
+  shouldAutoAcknowledge,
+  supportAcknowledgement,
+} from "@/lib/support-policy";
+import { getWorkspace } from "@/lib/workspace";
+
+type MessageAttributes = Record<string, unknown> & {
+  tribe_support_ack?: {
+    status?: "processing" | "sent" | "ignored" | "error";
+    updated_at?: string;
+    intent?: string;
+    confidence?: number;
+  };
+};
+
+function parseAttributes(value: string | null | undefined): MessageAttributes {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as MessageAttributes)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function alreadyHandled(attributes: MessageAttributes): boolean {
+  const marker = attributes.tribe_support_ack;
+  if (!marker?.status) return false;
+  if (marker.status === "sent" || marker.status === "ignored") return true;
+  if (marker.status !== "processing" || !marker.updated_at) return false;
+  const elapsed = Date.now() - Date.parse(marker.updated_at);
+  return Number.isFinite(elapsed) && elapsed < 2 * 60_000;
+}
+
+async function handleInboundSupportMessage(
+  params: Record<string, string>,
+): Promise<void> {
+  const {
+    Author: author,
+    Body: body,
+    ConversationSid: conversationSid,
+    MessageSid: messageSid,
+  } = params;
+  if (!author || !body?.trim() || !conversationSid || !messageSid) return;
+  if (
+    author === CLIENT_IDENTITY ||
+    normalizePhone(author) === normalizePhone(env.twilioPhoneNumber) ||
+    isOptOutMessage(body)
+  ) {
+    return;
+  }
+
+  const workspace = await getWorkspace();
+  const supported = findSupportedActionContext(author, workspace);
+  if (!supported) return;
+
+  const service = restClient().conversations.v1.services(
+    env.twilioConversationsServiceSid,
+  );
+  const conversation = service.conversations(conversationSid);
+  const message = await conversation.messages(messageSid).fetch();
+  const attributes = parseAttributes(message.attributes);
+  if (alreadyHandled(attributes)) return;
+
+  const processingAt = new Date().toISOString();
+  await conversation.messages(messageSid).update({
+    xTwilioWebhookEnabled: "false",
+    attributes: JSON.stringify({
+      ...attributes,
+      tribe_support_ack: {
+        status: "processing",
+        updated_at: processingAt,
+      },
+    }),
+  });
+
+  try {
+    const recent = await conversation.messages.list({
+      order: "desc",
+      limit: 6,
+    });
+    const recentMessages = recent
+      .filter((item) => item.sid !== messageSid && item.body)
+      .reverse()
+      .map((item) => ({
+        speaker:
+          normalizePhone(item.author ?? "") === normalizePhone(author)
+            ? ("supported_agent" as const)
+            : item.author === CLIENT_IDENTITY
+              ? ("tribe_support" as const)
+              : ("group_member" as const),
+        text: item.body ?? "",
+      }));
+    const classification = await classifySupportMessage({
+      body,
+      action: supported.action,
+      recentMessages,
+    });
+
+    if (!shouldAutoAcknowledge(classification)) {
+      await conversation.messages(messageSid).update({
+        xTwilioWebhookEnabled: "false",
+        attributes: JSON.stringify({
+          ...attributes,
+          tribe_support_ack: {
+            status: "ignored",
+            updated_at: new Date().toISOString(),
+            intent: classification.intent,
+            confidence: classification.confidence,
+          },
+        }),
+      });
+      return;
+    }
+
+    await conversation.messages.create({
+      author: CLIENT_IDENTITY,
+      body: supportAcknowledgement(
+        supported.contact.name,
+        supported.action.owner,
+      ),
+      attributes: JSON.stringify({
+        tribe_support_auto: true,
+        in_reply_to: messageSid,
+        action_id: supported.action.id,
+        version: 1,
+      }),
+    });
+    await conversation.messages(messageSid).update({
+      xTwilioWebhookEnabled: "false",
+      attributes: JSON.stringify({
+        ...attributes,
+        tribe_support_ack: {
+          status: "sent",
+          updated_at: new Date().toISOString(),
+          intent: classification.intent,
+          confidence: classification.confidence,
+        },
+      }),
+    });
+  } catch (error) {
+    console.error("Inbound support classification failed", {
+      conversationSid,
+      messageSid,
+      error: error instanceof Error ? error.message : "unknown error",
+    });
+    await conversation.messages(messageSid).update({
+      xTwilioWebhookEnabled: "false",
+      attributes: JSON.stringify({
+        ...attributes,
+        tribe_support_ack: {
+          status: "error",
+          updated_at: new Date().toISOString(),
+        },
+      }),
+    });
+  }
+}
 
 function projectedAddress(binding: unknown): string | null {
   if (!binding || typeof binding !== "object") return null;
@@ -88,6 +254,18 @@ export async function POST(request: Request) {
       // deliver onConversationStateUpdated after it becomes active.
       const code = (error as { code?: number }).code;
       if (code !== 50433 && code !== 50386) throw error;
+    }
+  }
+
+  if (params.EventType === "onMessageAdded") {
+    try {
+      await handleInboundSupportMessage(params);
+    } catch (error) {
+      console.error("Inbound support webhook failed", {
+        conversationSid: params.ConversationSid,
+        messageSid: params.MessageSid,
+        error: error instanceof Error ? error.message : "unknown error",
+      });
     }
   }
 

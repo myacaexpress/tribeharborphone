@@ -21,7 +21,12 @@ Built with Next.js, Twilio Voice JS SDK (calls), and Twilio Conversations
   `VOICE_FALLBACK_NUMBER` or takes a voicemail.
 - `POST /api/webhooks/conversations` — Conversations service webhook. When an
   inbound text auto-creates a conversation (including group MMS threads Marie
-  is added to), this joins Marie's identity so it appears in her app.
+  is added to), this joins Marie's identity so it appears in her app. For an
+  exact phone-number match to the affected agent on an open action, it also
+  classifies inbound messages and sends a short acknowledgment only for a
+  high-confidence request for help with that action.
+- `POST /api/ai/support-draft` — produces an editable outreach preview from
+  the selected open action. It never sends the preview automatically.
 - `POST /api/conversations` — starts a new 1:1 (proxy address) or group MMS
   (projected address) thread.
 - `GET /api/workspace` — syncs phone contacts from **People & Agencies** and
@@ -49,6 +54,8 @@ the full reference):
 | `VOICE_FALLBACK_NUMBER` | Optional: forward unanswered inbound calls here |
 | `APP_BASE_URL` | Public URL of the deployed app (required in production for signature validation behind the proxy) |
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | Command Center spreadsheet ID. The Cloud Run runtime service account must have Editor access. |
+| `OPENAI_API_KEY` | OpenAI project key for support drafts and guarded inbound classification |
+| `OPENAI_MODEL` | Optional low-latency support model; defaults to `gpt-5.6-terra` |
 
 ## Twilio console setup (one time)
 
@@ -67,9 +74,10 @@ the full reference):
 6. **Service webhook**: Console → Conversations → Services → (service) →
    Webhooks. Set the post-event URL to
    `https://<app-url>/api/webhooks/conversations` and enable the
-   `onConversationAdded` and `onConversationStateUpdated` events. The state
-   event lets the app join inbound Group MMS threads after Twilio finishes
-   their asynchronous initialization.
+   `onConversationAdded`, `onConversationStateUpdated`, and `onMessageAdded`
+   events. The state event lets the app join inbound Group MMS threads after
+   Twilio finishes their asynchronous initialization; the message event powers
+   the guarded support acknowledgment.
 7. **Group MMS**: the business number must be US/Canada MMS-capable. For
    deliverability, confirm the number is registered to an A2P 10DLC campaign
    (Console → Messaging → Regulatory compliance).
@@ -110,9 +118,18 @@ screen.
 
 Contacts with a phone number in **People & Agencies** appear automatically in
 the contact picker. **Open Actions** appears directly below Messages; tapping
-the circle marks an action complete, records the completion metadata, and adds
-an append-only row to **Activity Log**. Sheet-synced contacts remain read-only
-in the phone app so the spreadsheet stays the source of truth.
+an action opens its details and can produce an editable support-message
+preview; the preview is review-only and must be copied/sent by a person.
+Tapping the circle marks an action complete, records the completion metadata,
+and adds an append-only row to **Activity Log**. Sheet-synced contacts remain
+read-only in the phone app so the spreadsheet stays the source of truth.
+
+For inbound group messages, the app first requires an exact phone match to the
+affected contact on an open action. It ignores internal participants, ordinary
+comments, progress updates, thanks, and opt-outs. Only a high-confidence,
+action-related help request receives the deterministic acknowledgment:
+Anika will check with the action owner and follow up in the thread. The model
+classifies intent; it does not invent the recipient or response.
 
 ## Deploy (Cloud Run)
 

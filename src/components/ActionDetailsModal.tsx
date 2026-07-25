@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WorkspaceAction } from "@/lib/workspace";
 
 const PRIORITY_STYLE: Record<string, string> = {
@@ -43,6 +43,49 @@ export default function ActionDetailsModal({
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
+  const [draft, setDraft] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function generateDraft() {
+    setDrafting(true);
+    setDraftError(null);
+    setCopied(false);
+    try {
+      const response = await fetch("/api/ai/support-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: action.id }),
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.message) {
+        throw new Error(result.error || "Could not draft a message.");
+      }
+      setDraft(result.message);
+    } catch (draftFailure) {
+      setDraftError(
+        draftFailure instanceof Error
+          ? draftFailure.message
+          : "Could not draft a message.",
+      );
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  async function copyDraft() {
+    try {
+      await navigator.clipboard.writeText(draft);
+      setCopied(true);
+      setDraftError(null);
+    } catch {
+      setDraftError("Could not copy the message. Select and copy it manually.");
+    }
+  }
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -175,6 +218,77 @@ export default function ActionDetailsModal({
             <p className="mt-1 text-[14px] leading-relaxed">{action.blocker}</p>
           </div>
         )}
+
+        <section
+          aria-labelledby="support-message-title"
+          className="mt-6 rounded-[14px] bg-[color:var(--field)] p-4"
+        >
+          <h3 id="support-message-title" className="text-[15px] font-semibold">
+            Support message
+          </h3>
+          {!draft ? (
+            <>
+              <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--text-secondary)]">
+                Draft a personal check-in based on this next action.
+              </p>
+              <button
+                type="button"
+                disabled={drafting}
+                onClick={() => void generateDraft()}
+                className="mt-4 min-h-11 w-full touch-manipulation rounded-[11px] bg-[#0a7aff] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#006ee6] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+              >
+                {drafting ? "Drafting…" : "Draft support message"}
+              </button>
+            </>
+          ) : (
+            <>
+              <label
+                htmlFor="support-message-draft"
+                className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]"
+              >
+                Message preview
+              </label>
+              <textarea
+                id="support-message-draft"
+                value={draft}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setCopied(false);
+                }}
+                rows={6}
+                className="mt-2 w-full resize-y rounded-[10px] border border-[color:var(--hairline)] bg-[color:var(--bg-main)] px-3 py-2.5 text-[14px] leading-relaxed focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0a7aff]"
+              />
+              <p className="mt-2 text-[11px] text-[color:var(--text-secondary)]">
+                Review only — nothing is sent automatically.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={drafting}
+                  onClick={() => void generateDraft()}
+                  className="min-h-11 touch-manipulation rounded-[10px] border border-[color:var(--hairline)] px-3 text-[13px] font-semibold disabled:opacity-50"
+                >
+                  {drafting ? "Drafting…" : "Regenerate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void copyDraft()}
+                  className="min-h-11 touch-manipulation rounded-[10px] bg-[#0a7aff] px-3 text-[13px] font-semibold text-white"
+                >
+                  {copied ? "Copied" : "Copy message"}
+                </button>
+              </div>
+            </>
+          )}
+          {draftError && (
+            <p
+              role="alert"
+              className="mt-3 text-[12px] leading-snug text-red-500"
+            >
+              {draftError}
+            </p>
+          )}
+        </section>
 
         {error && (
           <p

@@ -11,6 +11,7 @@
  * - TWILIO_CONVERSATIONS_SERVICE_SID  Conversations service SID (ISxxxx)
  * - SESSION_SECRET            Random string used to sign session cookies
  * - MARIE_PASSWORD            Login password for the single app user
+ * - OPENAI_API_KEY            Project key used for support drafting/classifying
  *
  * Optional:
  * - VOICE_FALLBACK_NUMBER     E.164 number to forward inbound calls to when
@@ -54,6 +55,12 @@ export const env = {
   },
   get mariePassword() {
     return required("MARIE_PASSWORD");
+  },
+  get openAiApiKey() {
+    return required("OPENAI_API_KEY");
+  },
+  get openAiModel() {
+    return process.env.OPENAI_MODEL?.trim() || "gpt-5.6-terra";
   },
   get voiceFallbackNumber() {
     return process.env.VOICE_FALLBACK_NUMBER ?? null;
