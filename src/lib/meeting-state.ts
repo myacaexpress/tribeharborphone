@@ -23,11 +23,7 @@ async function authorizationHeaders(): Promise<Record<string, string>> {
   const auth = new GoogleAuth({ scopes: [STORAGE_SCOPE] });
   const client = await auth.getClient();
   const headers = await client.getRequestHeaders();
-  return Object.fromEntries(
-    Object.entries(headers).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
-    ),
-  );
+  return Object.fromEntries(headers.entries());
 }
 
 function metadataUrl(): string {
@@ -114,4 +110,3 @@ export async function pruneMeetingState(
 ): Promise<MeetingAlertState> {
   return updateMeetingState((state) => mergeMeetingOccurrences(state, [], now));
 }
-
