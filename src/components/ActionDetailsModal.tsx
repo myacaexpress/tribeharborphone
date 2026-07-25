@@ -208,7 +208,27 @@ export default function ActionDetailsModal({
           <Detail label="Status" value={action.status} />
           <Detail label="Owner" value={action.owner} />
           <Detail label="Type" value={action.recordType} />
+          <Detail label="Source status" value={action.sourceStatus} />
+          <Detail label="Last checked" value={action.sourceCheckedAt} />
         </dl>
+
+        {action.uploadUrl && (
+          <section className="mt-6 rounded-[14px] border border-[#0a7aff]/30 bg-[#0a7aff]/[0.06] p-4">
+            <h3 className="text-[15px] font-semibold">Upload requested item</h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--text-secondary)]">
+              This approved source link can be opened here or included in the
+              editable support message.
+            </p>
+            <a
+              href={action.uploadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 flex min-h-11 w-full touch-manipulation items-center justify-center rounded-[11px] bg-[#0a7aff] px-4 text-[14px] font-semibold text-white"
+            >
+              Open upload page
+            </a>
+          </section>
+        )}
 
         {action.blocker && (
           <div className="mt-6 rounded-[12px] bg-[color:var(--field)] p-4">

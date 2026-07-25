@@ -101,6 +101,7 @@ export async function generateSupportDraft(
       "Begin exactly with: Hi [first name], this is Anika with TriBe Support.",
       "After the introduction, ask one friendly question offering help with the most relevant part of the next action.",
       "Do not instruct, remind, demand, or tell the person to complete, check, send, upload, call, or do anything.",
+      "If an approved_upload_link is supplied, mention it only as an optional helpful resource and include the exact URL unchanged.",
       "Do not recap the full action. Mention no more than one or two useful specifics.",
       "Prefer natural language such as: Is there anything I can help with on your Aetna onboarding?",
       "Do not say the person is stuck or has been monitored unless the action explicitly says so.",
@@ -111,6 +112,7 @@ export async function generateSupportDraft(
     input: JSON.stringify({
       first_name: firstName(action.affectedRecord),
       next_required_action: action.action,
+      approved_upload_link: action.uploadUrl || null,
     }),
     timeoutMs: 10_000,
   });
@@ -153,6 +155,7 @@ export async function generateConversationDraft({
       "Offer help rather than instructing, reminding, demanding, or assigning work.",
       "If anika_already_introduced is true, never introduce or name Anika again. If false, a first outreach may introduce her briefly.",
       "If the answer requires information not supplied, say you can check with the team; never invent an answer, status, deadline, or promise.",
+      "If an approved_upload_link is supplied and directly answers the latest request, include the exact URL unchanged and present it as optional help.",
       "Do not repeat a message, question, or offer already sent in the thread.",
       "If a current draft is supplied, improve it while preserving its intent.",
       "Use no more than two sentences and aim for no more than 240 characters.",
@@ -164,6 +167,7 @@ export async function generateConversationDraft({
         : null,
       next_required_action: action?.action ?? null,
       action_owner: action?.owner || null,
+      approved_upload_link: action?.uploadUrl || null,
       anika_already_introduced: recentMessages.some(
         (message) =>
           message.speaker === "tribe_support" &&
