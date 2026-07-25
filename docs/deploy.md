@@ -126,8 +126,11 @@ names that begin with `Shawn`, `Michael`, or `Mark`; no CRM is required.
 
 Cloud Scheduler calls `/api/webhooks/meetings/reminders` every minute using an
 OIDC token from `tribeharborphone-scheduler@tribe-wayfinder-dev.iam.gserviceaccount.com`.
-The server formats one absolute meeting instant in each recipient's local
-timezone:
+That protected tick delivers both due meeting reminders and user-created
+scheduled messages. Scheduled messages are stored in the same private state
+bucket under a separate object and are claimed before delivery so scheduler
+retries cannot knowingly send the same message twice. The server formats one
+absolute meeting instant in each recipient's local timezone:
 
 - Shawn: `America/Los_Angeles`
 - Michael: `America/Chicago`

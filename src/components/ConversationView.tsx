@@ -7,6 +7,7 @@ import { contactName, normalizePhone, type Contact } from "@/lib/contacts";
 import Avatar from "./Avatar";
 import { conversationTitle } from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
+import ScheduleMessageDialog from "./ScheduleMessageDialog";
 
 function authorLabel(author: string | null, identity: string, contacts: Contact[]): string {
   if (!author || author === identity) return "Me";
@@ -28,6 +29,8 @@ export default function ConversationView({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [scheduledNotice, setScheduledNotice] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -217,6 +220,15 @@ export default function ConversationView({
       </div>
 
       <footer className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:px-4 sm:pb-4">
+        {scheduledNotice && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="mb-1.5 px-2 text-[12px] font-medium leading-snug text-[#0a7aff]"
+          >
+            {scheduledNotice}
+          </p>
+        )}
         {draftError && (
           <p
             role="alert"
@@ -243,6 +255,7 @@ export default function ConversationView({
               onChange={(e) => {
                 setDraft(e.target.value);
                 setDraftError(null);
+                setScheduledNotice(null);
               }}
               onKeyDown={(e) => {
                 if (
@@ -301,6 +314,37 @@ export default function ConversationView({
             )}
           </button>
           <button
+            type="button"
+            disabled={!draft.trim() || drafting || sending}
+            onClick={() => setShowSchedule(true)}
+            aria-label="Schedule message"
+            title="Schedule this message for later"
+            className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-[color:var(--hairline)] bg-[color:var(--field)] text-[#0a7aff] transition-opacity hover:opacity-80 active:opacity-65 disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a7aff]"
+          >
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="8.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M12 7.5V12l3 2"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Send"
@@ -318,6 +362,22 @@ export default function ConversationView({
           </button>
         </form>
       </footer>
+      {showSchedule && (
+        <ScheduleMessageDialog
+          conversationSid={conversation.sid}
+          body={draft}
+          onClose={() => setShowSchedule(false)}
+          onScheduled={(sendAt) => {
+            const formatted = new Intl.DateTimeFormat(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(new Date(sendAt));
+            setDraft("");
+            setShowSchedule(false);
+            setScheduledNotice(`Scheduled for ${formatted}.`);
+          }}
+        />
+      )}
     </div>
   );
 }

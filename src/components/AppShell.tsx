@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import DialerModal from "./DialerModal";
 import ConversationView from "./ConversationView";
 import NewMessageModal from "./NewMessageModal";
@@ -48,6 +54,44 @@ export default function AppShell() {
   const [showContacts, setShowContacts] = useState(false);
   const [contactPhone, setContactPhone] = useState<string | null>(null);
   const [savedContactName, setSavedContactName] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const stored = Number(
+        window.localStorage.getItem("tribe-sidebar-width"),
+      );
+      if (Number.isFinite(stored) && stored >= 280 && stored <= 520) {
+        setSidebarWidth(stored);
+      }
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  function saveSidebarWidth(width: number) {
+    const next = Math.min(520, Math.max(280, Math.round(width)));
+    setSidebarWidth(next);
+    window.localStorage.setItem("tribe-sidebar-width", String(next));
+  }
+
+  function beginSidebarResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    const onMove = (moveEvent: PointerEvent) => {
+      saveSidebarWidth(startWidth + moveEvent.clientX - startX);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  }
 
   useEffect(() => {
     if (!savedContactName) return;
@@ -78,11 +122,11 @@ export default function AppShell() {
       <VoiceOverlay />
 
       <aside
-        className={`${selected ? "hidden sm:flex" : "flex"} w-full shrink-0 flex-col backdrop-blur-2xl sm:w-[320px]`}
+        className={`${selected ? "hidden sm:flex" : "flex"} w-full shrink-0 flex-col backdrop-blur-2xl sm:w-[var(--sidebar-width)]`}
         style={{
+          "--sidebar-width": `${sidebarWidth}px`,
           background: "var(--bg-sidebar)",
-          borderRight: "1px solid var(--hairline)",
-        }}
+        } as CSSProperties}
       >
         <div className="flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-4">
           <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
@@ -133,6 +177,37 @@ export default function AppShell() {
           Sign out
         </button>
       </aside>
+      <button
+        type="button"
+        role="separator"
+        aria-label="Resize conversations and actions column"
+        aria-orientation="vertical"
+        aria-valuemin={280}
+        aria-valuemax={520}
+        aria-valuenow={sidebarWidth}
+        onPointerDown={beginSidebarResize}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            saveSidebarWidth(sidebarWidth - 20);
+          }
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            saveSidebarWidth(sidebarWidth + 20);
+          }
+          if (event.key === "Home") {
+            event.preventDefault();
+            saveSidebarWidth(280);
+          }
+          if (event.key === "End") {
+            event.preventDefault();
+            saveSidebarWidth(520);
+          }
+        }}
+        className="group relative z-10 hidden w-2 shrink-0 cursor-col-resize touch-none items-stretch justify-center bg-[color:var(--bg-main)] focus-visible:outline-none sm:flex"
+      >
+        <span className="w-px bg-[color:var(--hairline)] transition-colors group-hover:bg-[#0a7aff] group-focus-visible:bg-[#0a7aff]" />
+      </button>
 
       {selected ? (
         <ConversationView
