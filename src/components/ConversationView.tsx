@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "@twilio/conversations";
 import { formatPhone } from "@/lib/format";
 import { contactName, normalizePhone, type Contact } from "@/lib/contacts";
@@ -30,6 +30,23 @@ export default function ConversationView({
   const [draftError, setDraftError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  function resizeComposer() {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = "0px";
+    composer.style.height = `${composer.scrollHeight}px`;
+    composer.style.overflowY = "hidden";
+  }
+
+  useLayoutEffect(() => {
+    resizeComposer();
+  }, [draft]);
+
+  useEffect(() => {
+    window.addEventListener("resize", resizeComposer);
+    return () => window.removeEventListener("resize", resizeComposer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,7 +182,7 @@ export default function ConversationView({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
         {messages.map((message, i) => {
           const mine = (message.author ?? "") === identity;
           const prev = messages[i - 1];
@@ -228,14 +245,18 @@ export default function ConversationView({
                 setDraftError(null);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing
+                ) {
                   e.preventDefault();
                   send();
                 }
               }}
               rows={1}
               placeholder="Text Message · SMS"
-              className="max-h-32 w-full resize-none bg-transparent text-[16px] outline-none placeholder:text-[color:var(--text-secondary)] sm:text-[15px]"
+              className="min-h-6 w-full resize-none overflow-y-hidden bg-transparent text-[16px] leading-6 outline-none placeholder:text-[color:var(--text-secondary)] sm:text-[15px]"
             />
           </div>
           <button
