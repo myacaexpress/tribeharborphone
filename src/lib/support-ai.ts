@@ -98,6 +98,8 @@ export async function generateSupportDraft(
     instructions: [
       "Write one very short, warm SMS from Anika with TriBe Support.",
       "Use only the action data supplied. Never invent status, deadlines, promises, people, or requirements.",
+      "Treat current_mirror_evidence as the most current source for compliance-document status and do not contradict it.",
+      "The mirror does not prove that carrier-specific onboarding is complete.",
       "Begin exactly with: Hi [first name], this is Anika with TriBe Support.",
       "After the introduction, ask one friendly question offering help with the most relevant part of the next action.",
       "Do not instruct, remind, demand, or tell the person to complete, check, send, upload, call, or do anything.",
@@ -113,6 +115,7 @@ export async function generateSupportDraft(
       first_name: firstName(action.affectedRecord),
       next_required_action: action.action,
       approved_upload_link: action.uploadUrl || null,
+      current_mirror_evidence: action.mirrorSummary || null,
     }),
     timeoutMs: 10_000,
   });
@@ -152,6 +155,7 @@ export async function generateConversationDraft({
       "Draft one short, warm SMS reply from Anika with TriBe Support.",
       "Continue the conversation naturally and respond to the latest relevant message.",
       "Use the open action only when it helps answer or offer support; do not recap the full action.",
+      "Use current_mirror_evidence only to avoid stale or contradictory compliance-document claims; it does not confirm carrier onboarding.",
       "Offer help rather than instructing, reminding, demanding, or assigning work.",
       "If anika_already_introduced is true, never introduce or name Anika again. If false, a first outreach may introduce her briefly.",
       "If the answer requires information not supplied, say you can check with the team; never invent an answer, status, deadline, or promise.",
@@ -168,6 +172,7 @@ export async function generateConversationDraft({
       next_required_action: action?.action ?? null,
       action_owner: action?.owner || null,
       approved_upload_link: action?.uploadUrl || null,
+      current_mirror_evidence: action?.mirrorSummary || null,
       anika_already_introduced: recentMessages.some(
         (message) =>
           message.speaker === "tribe_support" &&
