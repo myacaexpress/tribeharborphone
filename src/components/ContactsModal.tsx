@@ -15,9 +15,11 @@ type PendingAction =
 
 export default function ContactsModal({
   onClose,
+  onSaved,
   initialPhone = null,
 }: {
   onClose: () => void;
+  onSaved: (contactName: string) => void;
   initialPhone?: string | null;
 }) {
   const { contacts, saveContact, deleteContact } = useTwilio();
@@ -127,8 +129,7 @@ export default function ContactsModal({
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (syncedContact) {
-      if (launchedFromConversation) onClose();
-      else setShowEditor(false);
+      onSaved(draft.name);
       return;
     }
     const phone = normalizePhone(draft.phone);
@@ -152,11 +153,7 @@ export default function ContactsModal({
       setEditing(savedContact);
       setDraft(savedContact);
       setBaseline(savedContact);
-      if (launchedFromConversation) {
-        onClose();
-      } else {
-        setShowEditor(false);
-      }
+      onSaved(savedContact.name);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save contact.");
     } finally {

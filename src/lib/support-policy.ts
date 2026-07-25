@@ -13,6 +13,7 @@ export interface SupportClassification {
   intent: SupportIntent;
   confidence: number;
   directlyAboutAction: boolean;
+  isNewHelpTopic: boolean;
 }
 
 export interface SupportedActionContext {
@@ -58,7 +59,8 @@ export function shouldAutoAcknowledge(
   return (
     classification.intent === "help_request" &&
     classification.confidence >= 0.86 &&
-    classification.directlyAboutAction
+    classification.directlyAboutAction &&
+    classification.isNewHelpTopic
   );
 }
 
@@ -71,13 +73,28 @@ export function actionOwnerLabel(owner: string): string {
   return trimmed;
 }
 
+export function shouldWelcomeToTribe(
+  recentMessages: ReadonlyArray<{
+    speaker: string;
+    text: string | null | undefined;
+  }>,
+): boolean {
+  const hasPriorSupportMessage = recentMessages.some(
+    (message) => message.speaker === "tribe_support",
+  );
+  const nonemptyMessageCount = recentMessages.filter((message) =>
+    message.text?.trim(),
+  ).length;
+
+  return !hasPriorSupportMessage && nonemptyMessageCount <= 2;
+}
+
 export function supportAcknowledgement(
-  contactName: string,
   owner: string,
+  welcomeToTribe: boolean,
 ): string {
-  const name = firstName(contactName);
-  const introduction = /^anika$/i.test(name)
-    ? "Hi Anika — TriBe Support here."
-    : `Hi ${name}, Anika with TriBe Support here.`;
+  const introduction = welcomeToTribe
+    ? "Anika here, and welcome to TriBe."
+    : "Anika here.";
   return `${introduction} I’ll check with ${actionOwnerLabel(owner)} on that and follow up here.`;
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { CLIENT_IDENTITY, env } from "@/lib/env";
 import {
   formParams,
@@ -13,6 +13,7 @@ import {
   findSupportedActionContext,
   isOptOutMessage,
   shouldAutoAcknowledge,
+  shouldWelcomeToTribe,
   supportAcknowledgement,
 } from "@/lib/support-policy";
 import { getWorkspace } from "@/lib/workspace";
@@ -23,8 +24,15 @@ type MessageAttributes = Record<string, unknown> & {
     updated_at?: string;
     intent?: string;
     confidence?: number;
+    reason?: string;
   };
 };
+
+const AUTO_REPLY_DELAY_MS = 10_000;
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 function parseAttributes(value: string | null | undefined): MessageAttributes {
   if (!value) return {};
@@ -90,10 +98,35 @@ async function handleInboundSupportMessage(
   });
 
   try {
+    await delay(AUTO_REPLY_DELAY_MS);
+
     const recent = await conversation.messages.list({
       order: "desc",
-      limit: 6,
+      limit: 30,
     });
+    const currentPosition = recent.findIndex((item) => item.sid === messageSid);
+    const messagesAfterCurrent =
+      currentPosition >= 0 ? recent.slice(0, currentPosition) : [];
+    const hasNewerSupportedAgentMessage = messagesAfterCurrent.some(
+      (item) =>
+        normalizePhone(item.author ?? "") === normalizePhone(author),
+    );
+
+    if (hasNewerSupportedAgentMessage) {
+      await conversation.messages(messageSid).update({
+        xTwilioWebhookEnabled: "false",
+        attributes: JSON.stringify({
+          ...attributes,
+          tribe_support_ack: {
+            status: "ignored",
+            updated_at: new Date().toISOString(),
+            reason: "superseded_by_newer_message",
+          },
+        }),
+      });
+      return;
+    }
+
     const recentMessages = recent
       .filter((item) => item.sid !== messageSid && item.body)
       .reverse()
@@ -131,14 +164,14 @@ async function handleInboundSupportMessage(
     await conversation.messages.create({
       author: CLIENT_IDENTITY,
       body: supportAcknowledgement(
-        supported.contact.name,
         supported.action.owner,
+        shouldWelcomeToTribe(recentMessages),
       ),
       attributes: JSON.stringify({
         tribe_support_auto: true,
         in_reply_to: messageSid,
         action_id: supported.action.id,
-        version: 1,
+        version: 2,
       }),
     });
     await conversation.messages(messageSid).update({
@@ -258,15 +291,17 @@ export async function POST(request: Request) {
   }
 
   if (params.EventType === "onMessageAdded") {
-    try {
-      await handleInboundSupportMessage(params);
-    } catch (error) {
-      console.error("Inbound support webhook failed", {
-        conversationSid: params.ConversationSid,
-        messageSid: params.MessageSid,
-        error: error instanceof Error ? error.message : "unknown error",
-      });
-    }
+    after(async () => {
+      try {
+        await handleInboundSupportMessage(params);
+      } catch (error) {
+        console.error("Inbound support webhook failed", {
+          conversationSid: params.ConversationSid,
+          messageSid: params.MessageSid,
+          error: error instanceof Error ? error.message : "unknown error",
+        });
+      }
+    });
   }
 
   return NextResponse.json({ ok: true });

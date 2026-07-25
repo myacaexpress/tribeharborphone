@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DialerModal from "./DialerModal";
 import ConversationView from "./ConversationView";
 import NewMessageModal from "./NewMessageModal";
@@ -47,6 +47,13 @@ export default function AppShell() {
   const [showCompose, setShowCompose] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [contactPhone, setContactPhone] = useState<string | null>(null);
+  const [savedContactName, setSavedContactName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!savedContactName) return;
+    const timeout = window.setTimeout(() => setSavedContactName(null), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [savedContactName]);
 
   const selected = useMemo(
     () => conversations.find((c) => c.sid === selectedSid) ?? null,
@@ -156,6 +163,10 @@ export default function AppShell() {
           key={contactPhone ?? "directory"}
           initialPhone={contactPhone}
           onClose={() => setShowContacts(false)}
+          onSaved={(contactName) => {
+            setSavedContactName(contactName);
+            setShowContacts(false);
+          }}
         />
       )}
       {showCompose && (
@@ -166,6 +177,26 @@ export default function AppShell() {
             setSelectedSid(sid);
           }}
         />
+      )}
+      {savedContactName && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 flex min-h-11 -translate-x-1/2 items-center gap-2 rounded-full bg-[#262629] px-4 py-2 text-[13px] font-semibold text-white shadow-xl"
+        >
+          <svg
+            aria-hidden="true"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {savedContactName} saved
+        </div>
       )}
     </main>
   );

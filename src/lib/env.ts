@@ -12,6 +12,9 @@
  * - SESSION_SECRET            Random string used to sign session cookies
  * - MARIE_PASSWORD            Login password for the single app user
  * - OPENAI_API_KEY            Project key used for support drafting/classifying
+ * - MEETING_ALERT_SECRET      Shared secret for the Gmail ingestion monitor
+ * - MEETING_SCHEDULER_SERVICE_ACCOUNT  OIDC identity used by Cloud Scheduler
+ * - MEETING_STATE_BUCKET      Private GCS bucket for meeting state
  *
  * Optional:
  * - VOICE_FALLBACK_NUMBER     E.164 number to forward inbound calls to when
@@ -61,6 +64,15 @@ export const env = {
   },
   get openAiModel() {
     return process.env.OPENAI_MODEL?.trim() || "gpt-5.6-terra";
+  },
+  get meetingAlertSecret() {
+    return required("MEETING_ALERT_SECRET");
+  },
+  get meetingSchedulerServiceAccount() {
+    return required("MEETING_SCHEDULER_SERVICE_ACCOUNT");
+  },
+  get meetingStateBucket() {
+    return required("MEETING_STATE_BUCKET");
   },
   get voiceFallbackNumber() {
     return process.env.VOICE_FALLBACK_NUMBER ?? null;
