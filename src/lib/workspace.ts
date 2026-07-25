@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { GoogleAuth } from "google-auth-library";
 import { normalizePhone, type Contact } from "./contacts";
+import type { SabMirrorInput } from "./sab-highlevel";
 
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const SHEETS_BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -837,6 +838,76 @@ async function reconcileSabMirrorActions(): Promise<void> {
       }),
     });
   }
+}
+
+export async function upsertSabMirrorRows(
+  inputs: SabMirrorInput[],
+): Promise<{ inserted: number; updated: number }> {
+  await ensureWorkspaceSchema();
+  const result = await sheetsRequest<{ values?: unknown[][] }>(
+    `values/${encodeURIComponent(`'${SAB_MIRROR_SHEET}'!A4:S1000`)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`,
+  );
+  const existingRows = result.values ?? [];
+  const rowByKey = new Map<string, number>();
+  let lastUsedRow = 3;
+  existingRows.forEach((row, index) => {
+    const sheetRow = index + 4;
+    if (row.some((cell) => value([cell], 0))) lastUsedRow = sheetRow;
+    const source = value(row, 0);
+    const recordId = value(row, 1);
+    const requirementKey = value(row, 2);
+    if (source && recordId && requirementKey) {
+      rowByKey.set(
+        `${normalized(source)}\u0000${recordId}\u0000${requirementKey}`,
+        sheetRow,
+      );
+    }
+  });
+
+  const writes: Array<{ range: string; values: unknown[][] }> = [];
+  let inserted = 0;
+  let updated = 0;
+  for (const input of inputs) {
+    const key = `${normalized(input.sourceSystem)}\u0000${input.sourceRecordId}\u0000${input.requirementKey}`;
+    let sheetRow = rowByKey.get(key);
+    if (sheetRow == null) {
+      lastUsedRow += 1;
+      sheetRow = lastUsedRow;
+      rowByKey.set(key, sheetRow);
+      inserted += 1;
+    } else {
+      updated += 1;
+    }
+    writes.push({
+      range: `'${SAB_MIRROR_SHEET}'!A${sheetRow}:O${sheetRow}`,
+      values: [[
+        input.sourceSystem,
+        input.sourceRecordId,
+        input.requirementKey,
+        input.affectedRecord,
+        input.recordType,
+        input.parentAgency,
+        input.scopeStatus,
+        input.requirement,
+        input.nextRequiredAction,
+        input.requirementStatus,
+        input.actionOwner,
+        input.targetFollowUpDate,
+        safeHttpUrl(input.uploadUrl),
+        safeHttpUrl(input.sourceRecordUrl),
+        input.sourceUpdatedAt,
+      ]],
+    });
+  }
+
+  if (writes.length) {
+    await sheetsRequest("values:batchUpdate", {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: writes }),
+    });
+    await reconcileSabMirrorActions();
+  }
+  return { inserted, updated };
 }
 
 export async function getWorkspace(): Promise<WorkspacePayload> {

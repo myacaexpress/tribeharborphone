@@ -59,6 +59,12 @@ the full reference):
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | Command Center spreadsheet ID. The Cloud Run runtime service account must have Editor access. |
 | `OPENAI_API_KEY` | OpenAI project key for support drafts and guarded inbound classification |
 | `OPENAI_MODEL` | Optional low-latency support model; defaults to `gpt-5.6-terra` |
+| `SAB_SYNC_ENABLED` | Enables the guarded SAB HighLevel → Sheet importer only when exactly `true` |
+| `SAB_HIGHLEVEL_LOCATION_ID` | SAB sub-account location ID |
+| `SAB_HIGHLEVEL_AGENCY_SCHEMA_KEY` | Agency custom-object key, normally `custom_objects.agencies` |
+| `SAB_HIGHLEVEL_TOKEN` | Private-integration token with read-only scopes only |
+| `SAB_SYNC_SCOPE_JSON` | Immutable HighLevel record-ID allowlist for confirmed TriBe direct agents and downline agencies |
+| `SAB_REQUIREMENT_FIELDS_JSON` | Approved field-to-requirement mapping; unmapped SAB fields are never copied |
 
 ## Twilio console setup (one time)
 
@@ -126,6 +132,25 @@ preview; the preview is review-only and must be copied/sent by a person.
 Tapping the circle marks an action complete, records the completion metadata,
 and adds an append-only row to **Activity Log**. Sheet-synced contacts remain
 read-only in the phone app so the spreadsheet stays the source of truth.
+
+### SAB read-only mirror
+
+`POST /api/webhooks/sab/sync` is an OIDC-protected scheduled endpoint. When
+enabled, it reads only the exact HighLevel contact and agency record IDs in
+`SAB_SYNC_SCOPE_JSON`, evaluates only the approved fields in
+`SAB_REQUIREMENT_FIELDS_JSON`, and upserts those requirements into
+**SAB Read-Only Mirror**. The existing stable-key reconciler then creates,
+resolves, or reopens the linked **Open Actions** row.
+
+The HighLevel private integration must contain only:
+
+- `contacts.readonly`
+- `locations/customFields.readonly`
+- `objects/schema.readonly`
+- `objects/record.readonly`
+
+There is no HighLevel write path in this service. Unknown records and unmapped
+fields are denied by default, and sensitive document contents are never copied.
 
 For inbound group messages, the app first requires an exact phone match to the
 affected contact on an open action. It ignores internal participants, ordinary
