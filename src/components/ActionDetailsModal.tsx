@@ -209,7 +209,8 @@ export default function ActionDetailsModal({
           <Detail label="Owner" value={action.owner} />
           <Detail label="Type" value={action.recordType} />
           <Detail label="Source status" value={action.sourceStatus} />
-          <Detail label="Last checked" value={action.sourceCheckedAt} />
+          <Detail label="Source updated" value={action.sourceCheckedAt} />
+          <Detail label="Mirror synced" value={action.mirrorSyncedAt} />
         </dl>
 
         {action.uploadUrl && (
@@ -230,12 +231,43 @@ export default function ActionDetailsModal({
           </section>
         )}
 
-        {action.blocker && (
+        {(action.blocker || action.mirrorSummary) && (
           <div className="mt-6 rounded-[12px] bg-[color:var(--field)] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
-              Blocker
+              Blocker and current evidence
             </p>
-            <p className="mt-1 text-[14px] leading-relaxed">{action.blocker}</p>
+            {action.blocker && (
+              <p className="mt-2 text-[14px] leading-relaxed">
+                {action.blocker}
+              </p>
+            )}
+            {action.mirrorSummary && (
+              <p className="mt-2 text-[14px] leading-relaxed">
+                {action.mirrorSummary}
+              </p>
+            )}
+            {action.mirrorEvidence.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {action.mirrorEvidence.map((item) => (
+                  <li
+                    key={item.requirementKey}
+                    className="flex items-start justify-between gap-3 text-[13px] leading-snug"
+                  >
+                    <span>{item.requirement}</span>
+                    <span className="shrink-0 font-semibold text-[color:var(--text-secondary)]">
+                      {item.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {action.requiresManualConfirmation && (
+              <p className="mt-3 border-t border-[color:var(--hairline)] pt-3 text-[12px] leading-relaxed text-[color:var(--text-secondary)]">
+                The mirror verifies compliance-document status. It does not
+                prove that carrier-specific onboarding was completed, so this
+                manual action remains open for review rather than being removed.
+              </p>
+            )}
           </div>
         )}
 

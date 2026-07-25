@@ -83,6 +83,20 @@ export interface WorkspaceAction {
   sourceStatus: string;
   sourceCheckedAt: string;
   syncLifecycle: string;
+  mirrorEvidence: WorkspaceMirrorEvidence[];
+  mirrorSummary: string;
+  mirrorSyncedAt: string;
+  requiresManualConfirmation: boolean;
+}
+
+export interface WorkspaceMirrorEvidence {
+  requirementKey: string;
+  requirement: string;
+  nextRequiredAction: string;
+  status: string;
+  uploadUrl: string;
+  sourceUpdatedAt: string;
+  lastSyncedAt: string;
 }
 
 export interface WorkspacePayload {
@@ -501,28 +515,122 @@ function priorityRank(priority: string): number {
   return { Urgent: 0, High: 1, Normal: 2, Low: 3 }[priority] ?? 4;
 }
 
-function activeActions(rows: unknown[][]): WorkspaceAction[] {
+function readableList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+export function summarizeMirrorEvidence(
+  evidence: WorkspaceMirrorEvidence[],
+): string {
+  const complete = evidence
+    .filter((item) => isResolvedSourceStatus(item.status))
+    .map((item) => item.requirement);
+  const outstanding = evidence
+    .filter((item) => !isResolvedSourceStatus(item.status))
+    .map((item) => item.requirement);
+  const withoutReusableLink = evidence
+    .filter(
+      (item) =>
+        !isResolvedSourceStatus(item.status) &&
+        !item.uploadUrl &&
+        ["agent-direct-deposit", "agent-w9"].includes(item.requirementKey),
+    )
+    .map((item) => item.requirement);
+  const parts: string[] = [];
+
+  if (complete.length) {
+    parts.push(`SAB currently confirms ${readableList(complete)} as complete.`);
+  }
+  if (outstanding.length) {
+    parts.push(
+      `SAB still reports ${readableList(outstanding)} as requiring attention.`,
+    );
+  }
+  if (withoutReusableLink.length) {
+    parts.push(
+      `No reusable upload link is available for ${readableList(withoutReusableLink)} because SAB sends those as agent-specific signature emails.`,
+    );
+  }
+  return parts.join(" ");
+}
+
+function mirrorEvidenceByRecord(
+  rows: unknown[][],
+): Map<string, WorkspaceMirrorEvidence[]> {
+  const byRecord = new Map<string, WorkspaceMirrorEvidence[]>();
+  for (const row of rows) {
+    const affectedRecord = value(row, 3);
+    const requirementKey = value(row, 2);
+    const requirement = value(row, 7);
+    const status = value(row, 9);
+    if (
+      !affectedRecord ||
+      !requirementKey ||
+      !requirement ||
+      !status ||
+      !isInScope(value(row, 6))
+    ) {
+      continue;
+    }
+    const key = normalized(affectedRecord);
+    const evidence = byRecord.get(key) ?? [];
+    evidence.push({
+      requirementKey,
+      requirement,
+      nextRequiredAction: value(row, 8),
+      status,
+      uploadUrl: safeHttpUrl(value(row, 12)),
+      sourceUpdatedAt: value(row, 14),
+      lastSyncedAt: value(row, 15),
+    });
+    byRecord.set(key, evidence);
+  }
+  return byRecord;
+}
+
+function activeActions(
+  rows: unknown[][],
+  mirrorRows: unknown[][] = [],
+): WorkspaceAction[] {
+  const evidenceByRecord = mirrorEvidenceByRecord(mirrorRows);
   return rows
     .filter((row) => value(row, 0) && !TERMINAL_STATUSES.has(value(row, 7)))
-    .map((row) => ({
-      id: value(row, 0),
-      priority: value(row, 1),
-      affectedRecord: value(row, 2),
-      recordType: value(row, 3),
-      action: value(row, 4),
-      owner: value(row, 5),
-      dueDate: value(row, 6),
-      status: value(row, 7),
-      blocker: value(row, 8),
-      dateStatus: value(row, 17),
-      externalSource: value(row, 33),
-      externalRecordId: value(row, 34),
-      requirementKey: value(row, 35),
-      uploadUrl: safeHttpUrl(value(row, 36)),
-      sourceStatus: value(row, 37),
-      sourceCheckedAt: value(row, 38),
-      syncLifecycle: value(row, 39),
-    }))
+    .map((row) => {
+      const affectedRecord = value(row, 2);
+      const mirrorEvidence =
+        evidenceByRecord.get(normalized(affectedRecord)) ?? [];
+      const mirrorSyncedAt = mirrorEvidence
+        .map((item) => item.lastSyncedAt)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? "";
+      return {
+        id: value(row, 0),
+        priority: value(row, 1),
+        affectedRecord,
+        recordType: value(row, 3),
+        action: value(row, 4),
+        owner: value(row, 5),
+        dueDate: value(row, 6),
+        status: value(row, 7),
+        blocker: value(row, 8),
+        dateStatus: value(row, 17),
+        externalSource: value(row, 33),
+        externalRecordId: value(row, 34),
+        requirementKey: value(row, 35),
+        uploadUrl: safeHttpUrl(value(row, 36)),
+        sourceStatus: value(row, 37),
+        sourceCheckedAt: value(row, 38),
+        syncLifecycle: value(row, 39),
+        mirrorEvidence,
+        mirrorSummary: summarizeMirrorEvidence(mirrorEvidence),
+        mirrorSyncedAt,
+        requiresManualConfirmation:
+          Boolean(mirrorEvidence.length) && normalized(value(row, 33)) !== "sab",
+      };
+    })
     .sort((a, b) => {
       const priorityDelta =
         priorityRank(a.priority) - priorityRank(b.priority);
@@ -916,6 +1024,7 @@ export async function getWorkspace(): Promise<WorkspacePayload> {
   const ranges = [
     "'People & Agencies'!A4:P1000",
     "'Open Actions'!A4:AN1000",
+    `'${SAB_MIRROR_SHEET}'!A4:S1000`,
   ];
   const query = ranges
     .map((range) => `ranges=${encodeURIComponent(range)}`)
@@ -925,6 +1034,7 @@ export async function getWorkspace(): Promise<WorkspacePayload> {
   }>(`values:batchGet?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&${query}`);
   const peopleRows = result.valueRanges?.[0]?.values ?? [];
   const actionRows = result.valueRanges?.[1]?.values ?? [];
+  const mirrorRows = result.valueRanges?.[2]?.values ?? [];
 
   const contacts = peopleRows
     .map((row): Contact | null => {
@@ -947,7 +1057,7 @@ export async function getWorkspace(): Promise<WorkspacePayload> {
 
   return {
     contacts,
-    actions: activeActions(actionRows),
+    actions: activeActions(actionRows, mirrorRows),
     syncedAt: new Date().toISOString(),
   };
 }
