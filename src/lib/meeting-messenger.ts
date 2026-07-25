@@ -4,6 +4,7 @@ import {
   type MeetingOccurrence,
   type MeetingTeamMember,
   attendeeStatusFor,
+  isMeetingTeamMemberInvited,
   localMeetingTime,
   mergeMeetingOccurrences,
 } from "./meeting-alerts";
@@ -202,6 +203,7 @@ export async function ingestMeetingOccurrences(
   const deliveries: Delivery[] = [];
   for (const event of nextBySource.values()) {
     for (const { member, contact } of user.contacts) {
+      if (!isMeetingTeamMemberInvited(event, member)) continue;
       const key = `meeting-invite:${event.sourceMessageId}:${contact.phone}`;
       deliveries.push({
         member,
@@ -234,6 +236,7 @@ export async function sendDueMeetingReminders(
   const deliveries: Delivery[] = [];
   for (const event of due) {
     for (const { member, contact } of user.contacts) {
+      if (!isMeetingTeamMemberInvited(event, member)) continue;
       const key = `meeting-reminder:${event.id}:${contact.phone}`;
       deliveries.push({
         member,

@@ -54,6 +54,7 @@ const EMPTY_STATE: MeetingAlertState = {
 
 const TEAM_EMAILS = new Set([
   "myacaexpress@gmail.com",
+  "shawnmilner8@gmail.com",
   "shawn@tribeharbor.com",
   "mark@tribeharbor.com",
   "markfernandez9504@gmail.com",
@@ -61,6 +62,16 @@ const TEAM_EMAILS = new Set([
   "pro.mentum.solutions@gmail.com",
   "marie@tribeharbor.com",
 ]);
+
+const TEAM_EMAIL_ALIASES: Record<MeetingTeamMember, string[]> = {
+  Shawn: [
+    "myacaexpress@gmail.com",
+    "shawnmilner8@gmail.com",
+    "shawn@tribeharbor.com",
+  ],
+  Michael: ["pro.mentum.solutions@gmail.com", "michael@tribeharbor.com"],
+  Mark: ["markfernandez9504@gmail.com", "mark@tribeharbor.com"],
+};
 
 function parameterValue(
   value: string | { val: string; params?: unknown } | undefined,
@@ -351,14 +362,20 @@ export function attendeeStatusFor(
   event: MeetingOccurrence,
   member: MeetingTeamMember,
 ): MeetingAttendee["status"] {
-  const aliases: Record<MeetingTeamMember, string[]> = {
-    Shawn: ["myacaexpress@gmail.com", "shawn@tribeharbor.com"],
-    Michael: ["pro.mentum.solutions@gmail.com", "michael@tribeharbor.com"],
-    Mark: ["markfernandez9504@gmail.com", "mark@tribeharbor.com"],
-  };
-  return (
-    event.attendees.find((attendee) =>
-      aliases[member].includes(attendee.email.toLowerCase()),
-    )?.status ?? null
+  const attendee = event.attendees.find((item) =>
+    TEAM_EMAIL_ALIASES[member].includes(item.email.toLowerCase()),
   );
+  if (attendee) return attendee.status;
+  return event.organizerEmail &&
+    TEAM_EMAIL_ALIASES[member].includes(event.organizerEmail.toLowerCase())
+    ? "ACCEPTED"
+    : null;
+}
+
+export function isMeetingTeamMemberInvited(
+  event: MeetingOccurrence,
+  member: MeetingTeamMember,
+): boolean {
+  const status = attendeeStatusFor(event, member);
+  return status !== null && status !== "DECLINED";
 }

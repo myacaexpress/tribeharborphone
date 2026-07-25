@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   attendeeStatusFor,
+  isMeetingTeamMemberInvited,
   localMeetingTime,
   parseMeetingInvite,
 } from "./meeting-alerts";
@@ -81,3 +82,47 @@ test("formats one instant in each team member's local timezone", () => {
   assert.match(localMeetingTime(start, "Mark"), /11:00 AM EDT/);
 });
 
+test("targets only invited team members and treats the organizer as attending", () => {
+  const baseEvent = {
+    id: "meeting-1:2026-07-29T15:00:00.000Z",
+    uid: "meeting-1",
+    sourceMessageId: "gmail-456",
+    sourceUrl: null,
+    title: "Private Shawn meeting",
+    startAt: "2026-07-29T15:00:00.000Z",
+    endAt: "2026-07-29T15:30:00.000Z",
+    originalTimeZone: "America/Los_Angeles",
+    organizerEmail: "external@example.com",
+    organizerName: "External Organizer",
+    attendees: [
+      {
+        email: "myacaexpress@gmail.com",
+        name: "Shawn Milner",
+        status: "NEEDS-ACTION" as const,
+      },
+      {
+        email: "mark@tribeharbor.com",
+        name: "Mark Fernandez",
+        status: "DECLINED" as const,
+      },
+    ],
+    meetUrl: "https://meet.google.com/abc-defg-hij",
+    eventUrl: null,
+    shawnResponseUrl: null,
+    cancelled: false,
+  };
+
+  assert.equal(isMeetingTeamMemberInvited(baseEvent, "Shawn"), true);
+  assert.equal(isMeetingTeamMemberInvited(baseEvent, "Michael"), false);
+  assert.equal(isMeetingTeamMemberInvited(baseEvent, "Mark"), false);
+
+  const shawnOrganizer = {
+    ...baseEvent,
+    organizerEmail: "shawnmilner8@gmail.com",
+    attendees: [],
+  };
+  assert.equal(attendeeStatusFor(shawnOrganizer, "Shawn"), "ACCEPTED");
+  assert.equal(isMeetingTeamMemberInvited(shawnOrganizer, "Shawn"), true);
+  assert.equal(isMeetingTeamMemberInvited(shawnOrganizer, "Michael"), false);
+  assert.equal(isMeetingTeamMemberInvited(shawnOrganizer, "Mark"), false);
+});
