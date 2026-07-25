@@ -24,6 +24,9 @@ export REGION=us-central1
 | `MARIE_PASSWORD` | (Secret Manager `tribeharborphone-marie-password`, v1 ENABLED) | Generated securely, never in chat/repo |
 | `TWILIO_AUTH_TOKEN` | (Secret Manager `tribeharborphone-twilio-auth-token`, v1 ENABLED) | Bound to Cloud Run for webhook signature validation |
 | `OPENAI_API_KEY` | (Secret Manager `tribeharborphone-openai-api-key`) | Project-scoped key for support drafts and inbound help-request classification |
+| `MEETING_ALERT_SECRET` | (Secret Manager `tribeharborphone-meeting-alert-secret`) | Authenticates the Gmail invite ingestion monitor |
+| `MEETING_SCHEDULER_SERVICE_ACCOUNT` | `tribeharborphone-scheduler@tribe-wayfinder-dev.iam.gserviceaccount.com` | OIDC identity accepted by the reminder endpoint |
+| `MEETING_STATE_BUCKET` | `tribe-wayfinder-dev-phone-state` | Private durable state for parsed meeting occurrences |
 | `TWILIO_TWIML_APP_SID` | (kept in ignored `.env.local`) | Existing "Tribe Harbor Phone" app; outbound Voice URL points to Cloud Run |
 
 ## 1. Secrets (status as of 2026-07-19)
@@ -52,7 +55,8 @@ for s in tribeharborphone-twilio-api-key-secret \
          tribeharborphone-twilio-auth-token \
          tribeharborphone-session-secret \
          tribeharborphone-marie-password \
-         tribeharborphone-openai-api-key; do
+         tribeharborphone-openai-api-key \
+         tribeharborphone-meeting-alert-secret; do
   gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
     --member "serviceAccount:${RUNTIME_SA}" \
     --role roles/secretmanager.secretAccessor
@@ -70,8 +74,8 @@ gcloud run deploy tribeharborphone --source . \
   --project "$PROJECT" --region "$REGION" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 2 \
-  --set-env-vars "TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_API_KEY_SID=${TWILIO_API_KEY_SID},TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER},TWILIO_TWIML_APP_SID=${TWILIO_TWIML_APP_SID},TWILIO_CONVERSATIONS_SERVICE_SID=${TWILIO_CONVERSATIONS_SERVICE_SID},OPENAI_MODEL=gpt-5.6-terra" \
-  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest,OPENAI_API_KEY=tribeharborphone-openai-api-key:latest"
+  --set-env-vars "TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_API_KEY_SID=${TWILIO_API_KEY_SID},TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER},TWILIO_TWIML_APP_SID=${TWILIO_TWIML_APP_SID},TWILIO_CONVERSATIONS_SERVICE_SID=${TWILIO_CONVERSATIONS_SERVICE_SID},OPENAI_MODEL=gpt-5.6-terra,MEETING_SCHEDULER_SERVICE_ACCOUNT=tribeharborphone-scheduler@${PROJECT}.iam.gserviceaccount.com,MEETING_STATE_BUCKET=tribe-wayfinder-dev-phone-state" \
+  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest,OPENAI_API_KEY=tribeharborphone-openai-api-key:latest,MEETING_ALERT_SECRET=tribeharborphone-meeting-alert-secret:latest"
 ```
 
 ## 4. Set APP_BASE_URL
@@ -106,6 +110,50 @@ The app reads **People & Agencies** and **Open Actions**. Completing an action
 updates that row and appends a phone-originated audit event to **Activity Log**.
 Google Application Default Credentials use the Cloud Run service identity; no
 service-account key file is stored in the app.
+
+### Meeting invitation and reminder pipeline
+
+Meeting invitation email is read from `myacaexpress@gmail.com` by a narrow
+Gmail monitor. The monitor posts the original MIME message to
+`/api/webhooks/meetings/ingest`; the server parses the attached iCalendar data,
+expands recurring meetings, and stores only the resulting event metadata in the
+private `tribe-wayfinder-dev-phone-state` bucket.
+
+The invitation notification is deduplicated by Gmail message id and recipient.
+The reminder notification is deduplicated by calendar event occurrence and
+recipient. Team phone numbers come from the phone app's saved contacts, using
+names that begin with `Shawn`, `Michael`, or `Mark`; no CRM is required.
+
+Cloud Scheduler calls `/api/webhooks/meetings/reminders` every minute using an
+OIDC token from `tribeharborphone-scheduler@tribe-wayfinder-dev.iam.gserviceaccount.com`.
+The server formats one absolute meeting instant in each recipient's local
+timezone:
+
+- Shawn: `America/Los_Angeles`
+- Michael: `America/Chicago`
+- Mark: `America/New_York`
+
+The scheduler endpoint rejects shared secrets and accepts only that verified
+service-account identity. The ingestion endpoint uses the separate
+`MEETING_ALERT_SECRET`; neither endpoint accepts a browser session as
+authorization.
+
+Create the minute-by-minute reminder trigger after deployment. The OIDC
+audience must exactly match the configured `APP_BASE_URL`:
+
+```bash
+export BASE_URL=https://tribeharborphone-618590726026.us-central1.run.app
+export SCHEDULER_SA=tribeharborphone-scheduler@${PROJECT}.iam.gserviceaccount.com
+
+gcloud scheduler jobs create http tribeharborphone-meeting-reminders \
+  --project "$PROJECT" --location "$REGION" \
+  --schedule='* * * * *' --time-zone=Etc/UTC \
+  --http-method=POST \
+  --uri="${BASE_URL}/api/webhooks/meetings/reminders" \
+  --oidc-service-account-email="$SCHEDULER_SA" \
+  --oidc-token-audience="$BASE_URL" \
+  --attempt-deadline=30s
+```
 
 ## 5. Map the mobile-friendly domain
 
