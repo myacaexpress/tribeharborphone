@@ -556,6 +556,25 @@ export function summarizeMirrorEvidence(
   return parts.join(" ");
 }
 
+export function approvedActionUploadUrl(
+  actionUploadUrl: string,
+  evidence: WorkspaceMirrorEvidence[],
+): string {
+  const directUrl = safeHttpUrl(actionUploadUrl);
+  if (directUrl) return directUrl;
+
+  const outstandingUrls = [
+    ...new Set(
+      evidence
+        .filter((item) => !isResolvedSourceStatus(item.status))
+        .map((item) => safeHttpUrl(item.uploadUrl))
+        .filter(Boolean),
+    ),
+  ];
+
+  return outstandingUrls.length === 1 ? outstandingUrls[0] : "";
+}
+
 function mirrorEvidenceByRecord(
   rows: unknown[][],
 ): Map<string, WorkspaceMirrorEvidence[]> {
@@ -620,7 +639,7 @@ function activeActions(
         externalSource: value(row, 33),
         externalRecordId: value(row, 34),
         requirementKey: value(row, 35),
-        uploadUrl: safeHttpUrl(value(row, 36)),
+        uploadUrl: approvedActionUploadUrl(value(row, 36), mirrorEvidence),
         sourceStatus: value(row, 37),
         sourceCheckedAt: value(row, 38),
         syncLifecycle: value(row, 39),
