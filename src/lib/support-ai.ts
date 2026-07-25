@@ -15,6 +15,9 @@ const SUPPORT_INTENTS: SupportIntent[] = [
   "opt_out",
   "other",
 ];
+const OPEN_HELP_QUESTION = "Is there anything else I can help you with?";
+const UPLOAD_ACTION_PATTERN =
+  /\b(step\s*2|upload|documents?|licenses?|certificates?)\b/i;
 
 interface ResponseOutput {
   output?: Array<{
@@ -30,6 +33,30 @@ function responseText(payload: ResponseOutput): string {
     }
   }
   throw new Error("The AI response did not include structured output.");
+}
+
+export function includeApprovedUploadLink(
+  message: string,
+  approvedUploadLink: string,
+  relevant: boolean,
+): string {
+  const trimmed = message.trim();
+  const link = approvedUploadLink.trim();
+  if (!relevant || !link || trimmed.includes(link)) return trimmed;
+
+  const resource = `If helpful, here is the upload link: ${link}`;
+  const candidate = trimmed.endsWith(OPEN_HELP_QUESTION)
+    ? `${trimmed.slice(0, -OPEN_HELP_QUESTION.length).trim()} ${resource} ${OPEN_HELP_QUESTION}`
+    : `${trimmed} ${resource}`;
+
+  return candidate.length <= 420 ? candidate : trimmed;
+}
+
+function actionNeedsUploadLink(action: WorkspaceAction | null): boolean {
+  return Boolean(
+    action?.uploadUrl &&
+      UPLOAD_ACTION_PATTERN.test(`${action.action} ${action.mirrorSummary}`),
+  );
 }
 
 async function structuredResponse<T>({
@@ -126,7 +153,11 @@ export async function generateSupportDraft(
   if (!message || message.length > 420) {
     throw new Error("The AI generated an invalid support message.");
   }
-  return message;
+  return includeApprovedUploadLink(
+    message,
+    action.uploadUrl,
+    actionNeedsUploadLink(action),
+  );
 }
 
 export async function generateConversationDraft({
@@ -193,7 +224,22 @@ export async function generateConversationDraft({
   if (!message || message.length > 420) {
     throw new Error("The AI generated an invalid conversation draft.");
   }
-  return message;
+  const latestSupportedMessage =
+    [...recentMessages]
+      .reverse()
+      .find((item) => item.speaker === "supported_contact")?.text ?? "";
+  const uploadLinkIsRelevant =
+    actionNeedsUploadLink(action) &&
+    (recentMessages.length === 0 ||
+      UPLOAD_ACTION_PATTERN.test(
+        `${latestSupportedMessage} ${currentDraft}`,
+      ));
+
+  return includeApprovedUploadLink(
+    message,
+    action?.uploadUrl ?? "",
+    uploadLinkIsRelevant,
+  );
 }
 
 export async function classifySupportMessage({
