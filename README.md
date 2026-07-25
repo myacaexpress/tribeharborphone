@@ -67,7 +67,9 @@ the full reference):
 6. **Service webhook**: Console → Conversations → Services → (service) →
    Webhooks. Set the post-event URL to
    `https://<app-url>/api/webhooks/conversations` and enable the
-   `onConversationAdded` event.
+   `onConversationAdded` and `onConversationStateUpdated` events. The state
+   event lets the app join inbound Group MMS threads after Twilio finishes
+   their asynchronous initialization.
 7. **Group MMS**: the business number must be US/Canada MMS-capable. For
    deliverability, confirm the number is registered to an A2P 10DLC campaign
    (Console → Messaging → Regulatory compliance).
