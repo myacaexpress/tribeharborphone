@@ -15,6 +15,7 @@ import { useTwilio } from "./TwilioProvider";
 import VoiceOverlay from "./VoiceOverlay";
 import ContactsModal from "./ContactsModal";
 import OpenActionsList from "./OpenActionsList";
+import NotificationControl from "./NotificationControl";
 
 function ToolbarButton({
   label,
@@ -166,6 +167,7 @@ export default function AppShell() {
         </div>
         <ThreadList selectedSid={selectedSid} onSelect={setSelectedSid} />
         <OpenActionsList />
+        <NotificationControl />
         <button
           onClick={async () => {
             await fetch("/api/logout", { method: "POST" });

@@ -15,10 +15,15 @@
  * - MEETING_ALERT_SECRET      Shared secret for the Gmail ingestion monitor
  * - MEETING_SCHEDULER_SERVICE_ACCOUNT  OIDC identity used by Cloud Scheduler
  * - MEETING_STATE_BUCKET      Private GCS bucket for meeting state
+ * - WEB_PUSH_VAPID_PUBLIC_KEY  Public VAPID key for browser push subscriptions
+ * - WEB_PUSH_VAPID_PRIVATE_KEY Private VAPID key used to sign push messages
+ * - WEB_PUSH_SUBJECT           Contact URI, normally mailto:operations address
  *
  * Optional:
  * - VOICE_FALLBACK_NUMBER     E.164 number to forward inbound calls to when
  *                             the browser client doesn't answer
+ * - VOICE_RING_GROUP_NUMBERS  Comma-separated E.164 numbers that ring
+ *                             simultaneously with the browser client
  * - APP_BASE_URL              Public base URL (needed behind proxies so
  *                             webhook signature validation sees the real URL)
  * - PUBLIC_APP_URL            Canonical user-facing URL for browser redirects
@@ -77,6 +82,32 @@ export const env = {
   },
   get voiceFallbackNumber() {
     return process.env.VOICE_FALLBACK_NUMBER ?? null;
+  },
+  get voiceRingGroupNumbers() {
+    const businessNumber = process.env.TWILIO_PHONE_NUMBER?.trim();
+    return (process.env.VOICE_RING_GROUP_NUMBERS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => /^\+[1-9]\d{7,14}$/.test(value))
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .filter((value) => value !== businessNumber);
+  },
+  get webPushVapidPublicKey() {
+    return process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() || null;
+  },
+  get webPushVapidPrivateKey() {
+    return process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() || null;
+  },
+  get webPushSubject() {
+    return process.env.WEB_PUSH_SUBJECT?.trim() || null;
+  },
+  get webPushConfigured() {
+    return Boolean(
+      process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() &&
+        process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() &&
+        process.env.WEB_PUSH_SUBJECT?.trim() &&
+        process.env.MEETING_STATE_BUCKET?.trim(),
+    );
   },
   get appBaseUrl() {
     return process.env.APP_BASE_URL ?? null;

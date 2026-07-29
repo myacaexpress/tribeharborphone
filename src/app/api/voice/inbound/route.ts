@@ -1,5 +1,5 @@
 import twilio from "twilio";
-import { CLIENT_IDENTITY } from "@/lib/env";
+import { CLIENT_IDENTITY, env } from "@/lib/env";
 import { formParams, validateTwilioSignature } from "@/lib/twilio-server";
 
 /**
@@ -20,6 +20,9 @@ export async function POST(request: Request) {
     answerOnBridge: true,
   });
   dial.client(CLIENT_IDENTITY);
+  for (const phoneNumber of env.voiceRingGroupNumbers) {
+    dial.number(phoneNumber);
+  }
 
   return new Response(twiml.toString(), {
     headers: { "Content-Type": "text/xml" },

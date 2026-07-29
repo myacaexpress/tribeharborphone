@@ -17,8 +17,10 @@ Built with Next.js, Twilio Voice JS SDK (calls), and Twilio Conversations
 - `POST /api/voice/outbound` — TwiML App voice URL. Bridges browser calls to
   the dialed number with the business caller ID.
 - `POST /api/voice/inbound` — business number's voice URL. Rings the browser
-  client; after 20s unanswered, `/api/voice/inbound-status` forwards to
-  `VOICE_FALLBACK_NUMBER` or takes a voicemail.
+  client and every number in `VOICE_RING_GROUP_NUMBERS` simultaneously; after
+  20s unanswered, `/api/voice/inbound-status` sends a missed-call push and
+  takes a voicemail. The older single `VOICE_FALLBACK_NUMBER` remains
+  available when no ring group is configured.
 - `POST /api/webhooks/conversations` — Conversations service webhook. When an
   inbound text auto-creates a conversation (including group MMS threads Marie
   is added to), this joins Marie's identity so it appears in her app. For an
@@ -55,10 +57,13 @@ the full reference):
 | `SESSION_SECRET` | Long random string |
 | `MARIE_PASSWORD` | Marie's login password |
 | `VOICE_FALLBACK_NUMBER` | Optional: forward unanswered inbound calls here |
+| `VOICE_RING_GROUP_NUMBERS` | Optional comma-separated E.164 cellular ring group |
 | `APP_BASE_URL` | Public URL of the deployed app (required in production for signature validation behind the proxy) |
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | Command Center spreadsheet ID. The Cloud Run runtime service account must have Editor access. |
 | `OPENAI_API_KEY` | OpenAI project key for support drafts and guarded inbound classification |
 | `OPENAI_MODEL` | Optional low-latency support model; defaults to `gpt-5.6-terra` |
+| `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` | Web Push signing key pair |
+| `WEB_PUSH_SUBJECT` | Web Push operator contact URI, normally `mailto:…` |
 | `SAB_SYNC_ENABLED` | Enables the guarded SAB HighLevel → Sheet importer only when exactly `true` |
 | `SAB_HIGHLEVEL_LOCATION_ID` | SAB sub-account location ID |
 | `SAB_HIGHLEVEL_AGENCY_SCHEMA_KEY` | Agency custom-object key, normally `custom_objects.agencies` |
@@ -122,6 +127,12 @@ The installed app opens in its own full-screen window and keeps the existing
 login and live Twilio behavior. Messages and private API responses are never
 stored by the service worker; when offline, the app shows a simple reconnect
 screen.
+
+After installation, open the app and tap **Enable notifications** once. Each
+leader's device stores its own private Web Push subscription. New inbound texts
+and unanswered calls then produce a notification even when the PWA is not
+open. Live inbound calls are also sent to the configured cellular ring group;
+mobile browsers are not treated as a reliable background telephone.
 
 ## Command Center on the phone
 

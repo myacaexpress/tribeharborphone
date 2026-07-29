@@ -27,6 +27,9 @@ export REGION=us-central1
 | `MEETING_ALERT_SECRET` | (Secret Manager `tribeharborphone-meeting-alert-secret`) | Authenticates the Gmail invite ingestion monitor |
 | `MEETING_SCHEDULER_SERVICE_ACCOUNT` | `tribeharborphone-scheduler@tribe-wayfinder-dev.iam.gserviceaccount.com` | OIDC identity accepted by the reminder endpoint |
 | `MEETING_STATE_BUCKET` | `tribe-wayfinder-dev-phone-state` | Private durable state for parsed meeting occurrences |
+| `VOICE_RING_GROUP_NUMBERS` | (Cloud Run env only) | Shawn, Michael, and Mark cellular numbers in E.164; never committed |
+| `WEB_PUSH_VAPID_PRIVATE_KEY` | (Secret Manager `tribeharborphone-web-push-vapid-private-key`) | Signs browser push notifications |
+| `WEB_PUSH_VAPID_PUBLIC_KEY` | (Cloud Run env only) | Public subscription key |
 | `TWILIO_TWIML_APP_SID` | (kept in ignored `.env.local`) | Existing "Tribe Harbor Phone" app; outbound Voice URL points to Cloud Run |
 
 ## 1. Secrets (status as of 2026-07-19)
@@ -56,7 +59,8 @@ for s in tribeharborphone-twilio-api-key-secret \
          tribeharborphone-session-secret \
          tribeharborphone-marie-password \
          tribeharborphone-openai-api-key \
-         tribeharborphone-meeting-alert-secret; do
+         tribeharborphone-meeting-alert-secret \
+         tribeharborphone-web-push-vapid-private-key; do
   gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
     --member "serviceAccount:${RUNTIME_SA}" \
     --role roles/secretmanager.secretAccessor
@@ -75,7 +79,7 @@ gcloud run deploy tribeharborphone --source . \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 2 \
   --set-env-vars "TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_API_KEY_SID=${TWILIO_API_KEY_SID},TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER},TWILIO_TWIML_APP_SID=${TWILIO_TWIML_APP_SID},TWILIO_CONVERSATIONS_SERVICE_SID=${TWILIO_CONVERSATIONS_SERVICE_SID},OPENAI_MODEL=gpt-5.6-terra,MEETING_SCHEDULER_SERVICE_ACCOUNT=tribeharborphone-scheduler@${PROJECT}.iam.gserviceaccount.com,MEETING_STATE_BUCKET=tribe-wayfinder-dev-phone-state" \
-  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest,OPENAI_API_KEY=tribeharborphone-openai-api-key:latest,MEETING_ALERT_SECRET=tribeharborphone-meeting-alert-secret:latest"
+  --set-secrets "TWILIO_API_KEY_SECRET=tribeharborphone-twilio-api-key-secret:latest,TWILIO_AUTH_TOKEN=tribeharborphone-twilio-auth-token:latest,SESSION_SECRET=tribeharborphone-session-secret:latest,MARIE_PASSWORD=tribeharborphone-marie-password:latest,OPENAI_API_KEY=tribeharborphone-openai-api-key:latest,MEETING_ALERT_SECRET=tribeharborphone-meeting-alert-secret:latest,WEB_PUSH_VAPID_PRIVATE_KEY=tribeharborphone-web-push-vapid-private-key:latest"
 ```
 
 ## 4. Set APP_BASE_URL

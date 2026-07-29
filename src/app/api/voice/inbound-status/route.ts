@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import twilio from "twilio";
 import { env } from "@/lib/env";
+import { sendPhoneNotification } from "@/lib/push-notifications";
 import { formParams, validateTwilioSignature } from "@/lib/twilio-server";
 
 /**
@@ -16,7 +18,14 @@ export async function POST(request: Request) {
   const status = params.DialCallStatus ?? "";
 
   if (status !== "completed" && status !== "answered") {
-    if (env.voiceFallbackNumber) {
+    after(() =>
+      sendPhoneNotification({
+        title: "Missed Tribe Phone call",
+        body: "Nobody answered the business line. Tap to open Tribe Phone.",
+        tag: `missed-call-${params.CallSid ?? Date.now()}`,
+      }),
+    );
+    if (env.voiceRingGroupNumbers.length === 0 && env.voiceFallbackNumber) {
       const dial = twiml.dial({ answerOnBridge: true });
       dial.number(env.voiceFallbackNumber);
     } else {

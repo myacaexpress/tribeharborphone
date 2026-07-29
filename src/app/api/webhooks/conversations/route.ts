@@ -17,6 +17,7 @@ import {
   supportAcknowledgement,
 } from "@/lib/support-policy";
 import { getWorkspace } from "@/lib/workspace";
+import { sendPhoneNotification } from "@/lib/push-notifications";
 
 type MessageAttributes = Record<string, unknown> & {
   tribe_support_ack?: {
@@ -293,6 +294,18 @@ export async function POST(request: Request) {
   if (params.EventType === "onMessageAdded") {
     after(async () => {
       try {
+        const author = params.Author ?? "";
+        if (
+          author &&
+          author !== CLIENT_IDENTITY &&
+          normalizePhone(author) !== normalizePhone(env.twilioPhoneNumber)
+        ) {
+          await sendPhoneNotification({
+            title: "New Tribe Phone message",
+            body: "A new text arrived. Tap to open the conversation.",
+            tag: `message-${params.MessageSid ?? params.ConversationSid ?? Date.now()}`,
+          });
+        }
         await handleInboundSupportMessage(params);
       } catch (error) {
         console.error("Inbound support webhook failed", {
