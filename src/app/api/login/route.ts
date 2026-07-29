@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getFormLoginSuccessUrl } from "@/lib/login-redirect";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const HARBOR_ORIGINS = new Set([
@@ -59,7 +60,14 @@ export async function POST(request: Request) {
 
   const token = await createSessionToken(env.sessionSecret);
   const response = isFormLogin
-    ? NextResponse.redirect(new URL("/", request.url), 303)
+    ? NextResponse.redirect(
+        getFormLoginSuccessUrl(
+          request.url,
+          env.publicAppUrl,
+          env.appBaseUrl,
+        ),
+        303,
+      )
     : NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

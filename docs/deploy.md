@@ -162,9 +162,10 @@ gcloud scheduler jobs create http tribeharborphone-meeting-reminders \
 
 The preferred user-facing URL is `https://phone.tribeharbor.com`. Keep
 `APP_BASE_URL` on the Cloud Run service URL until the Twilio webhook URLs are
-deliberately migrated together; form login redirects already preserve the
-host the user opened, so the custom domain can roll out without changing
-webhook signature validation.
+deliberately migrated together, and set
+`PUBLIC_APP_URL=https://phone.tribeharbor.com` for browser login redirects.
+This keeps the canonical browser URL independent from webhook signature
+validation.
 
 1. Verify `tribeharbor.com` for the Google account that owns the Cloud Run
    project:

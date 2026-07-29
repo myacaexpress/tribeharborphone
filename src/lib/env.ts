@@ -21,6 +21,7 @@
  *                             the browser client doesn't answer
  * - APP_BASE_URL              Public base URL (needed behind proxies so
  *                             webhook signature validation sees the real URL)
+ * - PUBLIC_APP_URL            Canonical user-facing URL for browser redirects
  */
 
 function required(name: string): string {
@@ -79,6 +80,9 @@ export const env = {
   },
   get appBaseUrl() {
     return process.env.APP_BASE_URL ?? null;
+  },
+  get publicAppUrl() {
+    return process.env.PUBLIC_APP_URL ?? null;
   },
 };
 
