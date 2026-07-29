@@ -123,6 +123,14 @@ Gmail monitor. The monitor posts the original MIME message to
 expands recurring meetings, and stores only the resulting event metadata in the
 private `tribe-wayfinder-dev-phone-state` bucket.
 
+The Apps Script source is tracked in
+`scripts/meeting-invite-monitor.gs`. Its time-driven trigger runs
+`ingestMeetingInvites` every minute. The monitor searches a rolling 60-day
+window for `.ics` attachments and deduplicates by Gmail message ID. Do not
+replace that rolling window with a last-run-only cursor: an invitation can
+arrive before the monitor is installed while still containing future meeting
+occurrences that need alerts.
+
 The invitation notification is deduplicated by Gmail message id and recipient.
 The reminder notification is deduplicated by calendar event occurrence and
 recipient. Team phone numbers come from the phone app's saved contacts, using
